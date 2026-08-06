@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { userDataContext } from "../context/UserContext.jsx";
 import { 
   HiSparkles, 
   HiEnvelope, 
@@ -24,6 +25,7 @@ const SignIn = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const { serverurl, loginUser } = useContext(userDataContext);
   const [message, setMessage] = useState({ type: "", text: "" });
 
   const handleChange = (e) => {
@@ -44,7 +46,7 @@ const SignIn = () => {
 
     try {
       const response = await axios.post(
-        "http://localhost:8000/api/auth/login",
+        `${serverurl || "http://localhost:8000"}/api/auth/login`,
         {
           email: formData.email,
           password: formData.password,
@@ -57,12 +59,12 @@ const SignIn = () => {
       setMessage({ type: "success", text: "Welcome back! Login successful." });
 
       if (response.data) {
-        localStorage.setItem("user", JSON.stringify(response.data));
+        loginUser(response.data);
       }
 
       setTimeout(() => {
         navigate("/");
-      }, 1500);
+      }, 1000);
     } catch (error) {
       console.error("SignIn error:", error);
       const errorMsg = error.response?.data?.message || "Invalid credentials. Please try again.";
@@ -71,6 +73,7 @@ const SignIn = () => {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen bg-[#0b0f19] text-white flex items-center justify-center p-4 sm:p-6 lg:p-8 relative overflow-hidden font-sans">

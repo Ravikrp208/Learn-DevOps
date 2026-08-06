@@ -1,6 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { userDataContext } from "../context/UserContext.jsx";
+import aiBg from "../assets/ai_background.png";
 import { 
   HiSparkles, 
   HiEnvelope, 
@@ -23,14 +25,9 @@ const SignUp = () => {
     password: "",
   });
 
-
-  
   const [showPassword, setShowPassword] = useState(false);
-  const [name ,setName] = useState('')
-  const [email ,setEmail] = useState('')
-  const [password ,setPassword] = useState('')
   const [loading, setLoading] = useState(false);
-  const {serverurl} = useContext(userDataContext)
+  const { serverurl, loginUser } = useContext(userDataContext);
   
   const [message, setMessage] = useState({ type: "", text: "" });
 
@@ -57,7 +54,7 @@ const SignUp = () => {
 
     try {
       const response = await axios.post(
-        "http://localhost:8000/api/auth/signup",
+        `${serverurl || "http://localhost:8000"}/api/auth/signup`,
         {
           assistantName: formData.assistantName,
           email: formData.email,
@@ -68,16 +65,15 @@ const SignUp = () => {
         }
       );
 
-      setMessage({ type: "success", text: "Account created successfully! Redirecting..." });
+      setMessage({ type: "success", text: "Account created successfully! Redirecting to Dashboard..." });
       
-      // Save basic user info locally
       if (response.data) {
-        localStorage.setItem("user", JSON.stringify(response.data));
+        loginUser(response.data);
       }
 
       setTimeout(() => {
-        navigate("/signin");
-      }, 1500);
+        navigate("/");
+      }, 1000);
     } catch (error) {
       console.error("SignUp error:", error);
       const errorMsg = error.response?.data?.message || "Failed to create account. Please try again.";
@@ -87,8 +83,16 @@ const SignUp = () => {
     }
   };
 
+
   return (
     <div className="min-h-screen bg-[#0b0f19] text-white flex items-center justify-center p-4 sm:p-6 lg:p-8 relative overflow-hidden font-sans">
+      {/* AI Background Image Layer */}
+      <div 
+        className="absolute inset-0 bg-cover bg-center bg-no-opacity bg-no-repeat opacity-30 mix-blend-luminosity scale-105 transition-all duration-1000"
+        style={{ backgroundImage: `url(${aiBg})` }}
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#0b0f19] via-[#0b0f19]/70 to-[#0b0f19]/90 pointer-events-none" />
+
       {/* Background Decorative Ambient Lights */}
       <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-indigo-600/20 rounded-full blur-[120px] pointer-events-none animate-float-glow" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-purple-600/20 rounded-full blur-[120px] pointer-events-none animate-float-glow" />
@@ -97,13 +101,19 @@ const SignUp = () => {
       {/* Cyber Grid pattern backdrop */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#1f293715_1px,transparent_1px),linear-gradient(to_bottom,#1f293715_1px,transparent_1px)] bg-[size:4rem_4rem] pointer-events-none" />
 
-      <div className="w-full max-w-5xl bg-slate-900/70 backdrop-blur-2xl border border-slate-800/80 rounded-3xl shadow-[0_0_50px_rgba(79,70,229,0.15)] overflow-hidden grid grid-cols-1 lg:grid-cols-12 relative z-10">
+      <div className="w-full max-w-5xl bg-slate-900/80 backdrop-blur-2xl border border-slate-800/80 rounded-3xl shadow-[0_0_50px_rgba(79,70,229,0.25)] overflow-hidden grid grid-cols-1 lg:grid-cols-12 relative z-10">
         
         {/* Left Side Showcase Section */}
-        <div className="lg:col-span-5 p-8 lg:p-12 bg-gradient-to-br from-indigo-950/80 via-slate-900/90 to-slate-950 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-800/80 relative overflow-hidden">
+        <div className="lg:col-span-5 p-8 lg:p-12 bg-gradient-to-br from-indigo-950/90 via-slate-900/95 to-slate-950/90 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-800/80 relative overflow-hidden">
+          {/* Subtle Background Image inside Showcase Card */}
+          <div 
+            className="absolute inset-0 bg-cover bg-center opacity-25 mix-blend-overlay pointer-events-none"
+            style={{ backgroundImage: `url(${aiBg})` }}
+          />
           <div className="absolute -right-16 -bottom-16 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
 
-          <div>
+          <div className="relative z-10">
+
             {/* Header Badge */}
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 text-xs font-semibold tracking-wide uppercase mb-6">
               <HiSparkles className="text-indigo-400 text-sm animate-pulse" />
