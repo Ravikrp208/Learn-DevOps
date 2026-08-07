@@ -18,7 +18,7 @@ const App = () => {
           userData ? (
             <Home />
           ) : (
-            <Navigate to="/customize" replace />
+            <Navigate to="/signup" replace />
           )
         }
       />

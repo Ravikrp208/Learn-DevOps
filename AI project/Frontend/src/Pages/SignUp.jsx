@@ -1,7 +1,7 @@
 import React, { useState, useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { userDataContext } from "../context/UserContext.jsx";
+import { userDataContext } from "../context/userContext.jsx";
 import aiBg from "../assets/ai_background.png";
 import { 
   HiSparkles, 
@@ -65,14 +65,14 @@ const SignUp = () => {
         }
       );
 
-      setMessage({ type: "success", text: "Account created successfully! Redirecting to Dashboard..." });
+      setMessage({ type: "success", text: "Account created successfully! Redirecting to Customize Assistant..." });
       
       if (response.data) {
         loginUser(response.data);
       }
 
       setTimeout(() => {
-        navigate("/");
+        navigate("/customize");
       }, 1000);
     } catch (error) {
       console.error("SignUp error:", error);

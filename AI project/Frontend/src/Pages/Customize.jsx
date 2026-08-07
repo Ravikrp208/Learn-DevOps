@@ -22,26 +22,38 @@ const Customize = () => {
     setSelectedImage,
     frontendImage,
     setFrontendImage,
+    backendImage,
     setBackendImage,
   } = context;
 
   const [frontendImg, setFrontendImg] = useState(frontendImage || null);
   const [selected, setSelected] = useState(selectedImage || null);
+  const [uploadedFile, setUploadedFile] = useState(backendImage || null);
 
   const handleSelectPreset = (img) => {
     setSelected(img);
     if (setSelectedImage) setSelectedImage(img);
+    if (setBackendImage) setBackendImage(null);
   };
 
   const handleImage = (e) => {
     const file = e.target.files && e.target.files[0];
     if (file) {
+      setUploadedFile(file);
       if (setBackendImage) setBackendImage(file);
       const imageUrl = URL.createObjectURL(file);
       setFrontendImg(imageUrl);
       setSelected(imageUrl);
       if (setFrontendImage) setFrontendImage(imageUrl);
       if (setSelectedImage) setSelectedImage(imageUrl);
+    }
+  };
+
+  const handleSelectCustom = () => {
+    if (frontendImg) {
+      setSelected(frontendImg);
+      if (setSelectedImage) setSelectedImage(frontendImg);
+      if (setBackendImage && uploadedFile) setBackendImage(uploadedFile);
     }
   };
 
@@ -78,10 +90,7 @@ const Customize = () => {
           <Card
             image={frontendImg}
             selected={selected === frontendImg}
-            onClick={() => {
-              setSelected(frontendImg);
-              if (setSelectedImage) setSelectedImage(frontendImg);
-            }}
+            onClick={handleSelectCustom}
           />
         )}
 

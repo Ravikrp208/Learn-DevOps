@@ -6,11 +6,12 @@ export const getCurrentUser = async(req, res) => {
     const userId = req.userId 
     const user = await User.findById(userId).select("-password")
     if (!user) {
-      return res.status(400).json({ message: "User not found" })
+      return res.status(404).json({ message: "User not found" })
     }
     return res.status(200).json(user)
   } catch (error) {
-    return res.status(400).json({ message: "Get current user error" })
+    console.error("Get current user error:", error);
+    return res.status(500).json({ message: "Get current user error" })
   }
 }
 
@@ -20,19 +21,38 @@ export const updateassistantname = async(req, res) => {
     let assistantImage;
 
     if (req.file) {
-      assistantImage = await uploadCloudinary(req.file.path)
-    } else {
+      const cloudUrl = await uploadCloudinary(req.file.path)
+      if (cloudUrl) {
+        assistantImage = cloudUrl
+      } else {
+        // Fallback to local server URL if Cloudinary fails or has invalid credentials
+        assistantImage = `http://localhost:8000/${req.file.filename}`
+      }
+    } else if (imageUrl || imageurl) {
       assistantImage = imageUrl || imageurl
+    }
+
+    const updateFields = {}
+    if (assistantName && assistantName.trim()) {
+      updateFields.assistantName = assistantName.trim()
+    }
+    if (assistantImage) {
+      updateFields.assistantImage = assistantImage
     }
 
     const user = await User.findByIdAndUpdate(
       req.userId,
-      { assistantName, assistantImage },
-      { new: true }
+      updateFields,
+      { returnDocument: 'after' }
     ).select("-password")
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" })
+    }
 
     return res.status(200).json(user);
   } catch (error) {
-    return res.status(400).json({ message: "Update assistant name error" })
+    console.error("Update assistant error:", error);
+    return res.status(500).json({ message: error.message || "Update assistant error" })
   }
 }
