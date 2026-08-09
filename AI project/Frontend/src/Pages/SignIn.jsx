@@ -56,14 +56,14 @@ const SignIn = () => {
         }
       );
 
-      setMessage({ type: "success", text: "Welcome back! Login successful." });
+      setMessage({ type: "success", text: "Welcome back! Redirecting to Customize Assistant..." });
 
       if (response.data) {
         loginUser(response.data);
       }
 
       setTimeout(() => {
-        navigate("/");
+        navigate("/customize");
       }, 1000);
     } catch (error) {
       console.error("SignIn error:", error);

@@ -24,20 +24,20 @@ const App = () => {
       />
       <Route
         path="/signup"
-        element={!userData ? <SignUp /> : <Navigate to="/" replace />}
+        element={!userData ? <SignUp /> : <Navigate to="/customize" replace />}
       />
       <Route
         path="/singup"
-        element={!userData ? <SignUp /> : <Navigate to="/" replace />}
+        element={!userData ? <SignUp /> : <Navigate to="/customize" replace />}
       />
 
       <Route
         path="/signin"
-        element={!userData ? <SignIn /> : <Navigate to="/" replace />}
+        element={!userData ? <SignIn /> : <Navigate to="/customize" replace />}
       />
       <Route
         path="/singin"
-        element={!userData ? <SignIn /> : <Navigate to="/" replace />}
+        element={!userData ? <SignIn /> : <Navigate to="/customize" replace />}
       />
 
       <Route
