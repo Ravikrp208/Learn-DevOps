@@ -55,12 +55,13 @@ function Home() {
 
   // Quick Suggestion Prompts
   const quickSuggestions = [
-    { label: "Search AI Trends", prompt: "Search latest AI trends on Google", icon: "🌐" },
-    { label: "Play Lo-Fi Music", prompt: "Play lofi chill beats on YouTube", icon: "🎵" },
+    { label: "Play YouTube Music", prompt: "Play Arijit Singh songs on YouTube", icon: "🎵" },
+    { label: "Search Google", prompt: "Search latest tech news on Google", icon: "🔍" },
+    { label: "Open WhatsApp", prompt: "Open WhatsApp", icon: "💬" },
+    { label: "Open Instagram", prompt: "Open Instagram", icon: "📸" },
     { label: "Current Time", prompt: "What is the current time?", icon: "⏰" },
     { label: "Today's Date", prompt: "What is today's date?", icon: "📅" },
     { label: "Weather Update", prompt: "Show me today's weather", icon: "🌤️" },
-    { label: "Open Instagram", prompt: "Open Instagram", icon: "📸" },
     { label: "Open Calculator", prompt: "Open Calculator", icon: "🧮" },
   ];
 
@@ -71,7 +72,7 @@ function Home() {
       const recognition = new SpeechRecognition();
       recognition.continuous = false;
       recognition.interimResults = true;
-      recognition.lang = "en-US";
+      recognition.lang = "en-IN"; // Seamlessly supports Indian English and Hindi/Hinglish
 
       recognition.onstart = () => {
         setIsListening(true);
@@ -194,29 +195,53 @@ function Home() {
 
   // Perform External Intent Actions
   const executeIntentAction = (type, queryParam) => {
-    const safeQuery = encodeURIComponent(queryParam || searchQuery);
+    const safeQuery = encodeURIComponent(queryParam || searchQuery || "");
+    let targetUrl = "";
+
     switch (type) {
       case "google_search":
-        window.open(`https://www.google.com/search?q=${safeQuery}`, "_blank");
+        targetUrl = `https://www.google.com/search?q=${safeQuery}`;
         break;
       case "youtube_search":
       case "youtube_play":
-        window.open(`https://www.youtube.com/results?search_query=${safeQuery}`, "_blank");
+        targetUrl = `https://www.youtube.com/results?search_query=${safeQuery}`;
+        break;
+      case "whatsapp_open":
+        targetUrl = "https://web.whatsapp.com";
         break;
       case "instagram_open":
-        window.open("https://www.instagram.com", "_blank");
+        targetUrl = "https://www.instagram.com";
         break;
       case "facebook_open":
-        window.open("https://www.facebook.com", "_blank");
+        targetUrl = "https://www.facebook.com";
+        break;
+      case "spotify_open":
+        targetUrl = (queryParam && queryParam !== "Spotify") ? `https://open.spotify.com/search/${safeQuery}` : "https://open.spotify.com";
+        break;
+      case "github_open":
+        targetUrl = "https://github.com";
+        break;
+      case "chatgpt_open":
+        targetUrl = "https://chatgpt.com";
+        break;
+      case "gmail_open":
+        targetUrl = "https://mail.google.com";
+        break;
+      case "maps_open":
+        targetUrl = `https://www.google.com/maps/search/${safeQuery}`;
         break;
       case "calculator_open":
-        window.open("https://www.google.com/search?q=calculator", "_blank");
+        targetUrl = "https://www.google.com/search?q=calculator";
         break;
       case "weather_show":
-        window.open(`https://www.google.com/search?q=weather+${safeQuery}`, "_blank");
+        targetUrl = `https://www.google.com/search?q=weather+${safeQuery}`;
         break;
       default:
         break;
+    }
+
+    if (targetUrl) {
+      window.open(targetUrl, "_blank", "noopener,noreferrer");
     }
   };
 
@@ -257,20 +282,26 @@ function Home() {
       speakResponse(formattedResult.response);
 
       // Trigger automatic web action if applicable
-      if (
-        [
-          "google_search",
-          "youtube_search",
-          "youtube_play",
-          "instagram_open",
-          "facebook_open",
-          "calculator_open",
-          "weather_show"
-        ].includes(data.type)
-      ) {
+      const actionableTypes = [
+        "google_search",
+        "youtube_search",
+        "youtube_play",
+        "whatsapp_open",
+        "instagram_open",
+        "facebook_open",
+        "spotify_open",
+        "github_open",
+        "chatgpt_open",
+        "gmail_open",
+        "maps_open",
+        "calculator_open",
+        "weather_show"
+      ];
+
+      if (actionableTypes.includes(data.type)) {
         setTimeout(() => {
           executeIntentAction(data.type, data.userInput || promptToSend);
-        }, 1200);
+        }, 1000);
       }
 
     } catch (err) {
@@ -318,6 +349,22 @@ function Home() {
       case "youtube_search":
       case "youtube_play":
         return { label: "YouTube Action", color: "bg-red-500/20 text-red-300 border-red-500/40" };
+      case "whatsapp_open":
+        return { label: "WhatsApp", color: "bg-green-500/20 text-green-300 border-green-500/40" };
+      case "instagram_open":
+        return { label: "Instagram", color: "bg-pink-500/20 text-pink-300 border-pink-500/40" };
+      case "facebook_open":
+        return { label: "Facebook", color: "bg-blue-600/20 text-blue-300 border-blue-600/40" };
+      case "spotify_open":
+        return { label: "Spotify Music", color: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40" };
+      case "github_open":
+        return { label: "GitHub", color: "bg-slate-500/20 text-slate-300 border-slate-500/40" };
+      case "chatgpt_open":
+        return { label: "ChatGPT", color: "bg-teal-500/20 text-teal-300 border-teal-500/40" };
+      case "gmail_open":
+        return { label: "Gmail", color: "bg-rose-500/20 text-rose-300 border-rose-500/40" };
+      case "maps_open":
+        return { label: "Google Maps", color: "bg-amber-500/20 text-amber-300 border-amber-500/40" };
       case "get_time":
       case "get_date":
       case "get_day":
@@ -325,13 +372,43 @@ function Home() {
         return { label: "Time & Date", color: "bg-amber-500/20 text-amber-300 border-amber-500/40" };
       case "weather_show":
         return { label: "Weather Update", color: "bg-cyan-500/20 text-cyan-300 border-cyan-500/40" };
-      case "instagram_open":
-      case "facebook_open":
-        return { label: "Social Link", color: "bg-pink-500/20 text-pink-300 border-pink-500/40" };
       case "calculator_open":
         return { label: "Calculator", color: "bg-purple-500/20 text-purple-300 border-purple-500/40" };
       default:
         return { label: "AI Response", color: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40" };
+    }
+  };
+
+  // Action button label and color helper
+  const getActionButtonInfo = (type) => {
+    switch (type) {
+      case "google_search":
+        return { label: "Open Google Search", style: "bg-blue-600/25 hover:bg-blue-600/40 text-blue-300 border-blue-500/40" };
+      case "youtube_search":
+      case "youtube_play":
+        return { label: "Play on YouTube", style: "bg-red-600/25 hover:bg-red-600/40 text-red-300 border-red-500/40" };
+      case "whatsapp_open":
+        return { label: "Open WhatsApp Web", style: "bg-green-600/25 hover:bg-green-600/40 text-green-300 border-green-500/40" };
+      case "instagram_open":
+        return { label: "Open Instagram", style: "bg-pink-600/25 hover:bg-pink-600/40 text-pink-300 border-pink-500/40" };
+      case "facebook_open":
+        return { label: "Open Facebook", style: "bg-blue-700/25 hover:bg-blue-700/40 text-blue-300 border-blue-600/40" };
+      case "spotify_open":
+        return { label: "Open in Spotify", style: "bg-emerald-600/25 hover:bg-emerald-600/40 text-emerald-300 border-emerald-500/40" };
+      case "github_open":
+        return { label: "Open GitHub", style: "bg-slate-700/40 hover:bg-slate-700/60 text-slate-200 border-slate-500/40" };
+      case "chatgpt_open":
+        return { label: "Open ChatGPT", style: "bg-teal-600/25 hover:bg-teal-600/40 text-teal-300 border-teal-500/40" };
+      case "gmail_open":
+        return { label: "Open Gmail", style: "bg-rose-600/25 hover:bg-rose-600/40 text-rose-300 border-rose-500/40" };
+      case "maps_open":
+        return { label: "Open Maps", style: "bg-amber-600/25 hover:bg-amber-600/40 text-amber-300 border-amber-500/40" };
+      case "calculator_open":
+        return { label: "Open Calculator", style: "bg-purple-600/25 hover:bg-purple-600/40 text-purple-300 border-purple-500/40" };
+      case "weather_show":
+        return { label: "View Weather Details", style: "bg-cyan-600/25 hover:bg-cyan-600/40 text-cyan-300 border-cyan-500/40" };
+      default:
+        return null;
     }
   };
 
@@ -660,23 +737,19 @@ function Home() {
               </div>
 
               {/* Direct Open Link for external actions */}
-              {[
-                "google_search",
-                "youtube_search",
-                "youtube_play",
-                "instagram_open",
-                "facebook_open",
-                "calculator_open",
-                "weather_show"
-              ].includes(lastInteraction.type) && (
-                <button
-                  onClick={() => executeIntentAction(lastInteraction.type, lastInteraction.userInput)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 hover:text-blue-200 border border-blue-500/30 text-xs font-semibold transition-colors cursor-pointer ml-auto"
-                >
-                  <span>Open External Link</span>
-                  <HiArrowTopRightOnSquare />
-                </button>
-              )}
+              {(() => {
+                const actionInfo = getActionButtonInfo(lastInteraction.type);
+                if (!actionInfo) return null;
+                return (
+                  <button
+                    onClick={() => executeIntentAction(lastInteraction.type, lastInteraction.userInput)}
+                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border text-xs font-bold transition-all duration-200 hover:scale-[1.03] active:scale-95 shadow-md cursor-pointer ml-auto ${actionInfo.style}`}
+                  >
+                    <span>{actionInfo.label}</span>
+                    <HiArrowTopRightOnSquare className="text-sm" />
+                  </button>
+                );
+              })()}
             </div>
           </section>
         )}
