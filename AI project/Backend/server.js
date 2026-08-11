@@ -5,7 +5,6 @@ import authRouter from "./routes/auth.routes.js";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import userRouter from "./routes/user.routes.js";
-import geminiResponse from "./gemini.js";
 
 dotenv.config();
 const app = express();
@@ -14,18 +13,23 @@ app.use(express.json());
 app.use(express.static("public"));
 app.use(cookieParser());
 app.use(cors({
-  origin: "http://localhost:5173", 
+  origin: (origin, callback) => {
+    // Allow local development, mobile devices on local network, and tools without origin
+    callback(null, true);
+  },
   credentials: true
 }));
 
 const PORT = process.env.PORT || 8000;
 
+// Standard API Routes
 app.use("/api/auth", authRouter);
-app.use("/api/user",userRouter);
+app.use("/api/user", userRouter);
 
-
+// Connect Database
 connectDB();
-// Server initialization with Gemini AI integration
+
+// Server start
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`AI Assistant Server is running on port ${PORT}`);
 });

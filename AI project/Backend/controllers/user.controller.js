@@ -1,4 +1,5 @@
 import User from "../models/user.model.js";
+import imagekit, { uploadImageKit } from "../config/imagekit.js";
 import uploadCloudinary from "../config/cloudinary.js";
 import geminiResponse from "../gemini.js";
 import moment from "moment";
@@ -23,12 +24,21 @@ export const updateassistantname = async (req, res) => {
     let assistantImage;
 
     if (req.file) {
-      const cloudUrl = await uploadCloudinary(req.file.path);
-      if (cloudUrl) {
-        assistantImage = cloudUrl;
+      // 1. Primary: Upload image via ImageKit
+      const ikUrl = await uploadImageKit(req.file.path, req.file.filename || req.file.originalname);
+      
+      if (ikUrl) {
+        assistantImage = ikUrl;
       } else {
-        // Fallback to local server URL if Cloudinary fails
-        assistantImage = `http://localhost:8000/${req.file.filename}`;
+        // 2. Fallback: Cloudinary
+        const cloudUrl = await uploadCloudinary(req.file.path);
+        if (cloudUrl) {
+          assistantImage = cloudUrl;
+        } else {
+          // 3. Fallback: Local Server Static File URL
+          const host = req.headers.host || "localhost:8000";
+          assistantImage = `http://${host}/${req.file.filename}`;
+        }
       }
     } else if (imageUrl || imageurl) {
       assistantImage = imageUrl || imageurl;
@@ -48,14 +58,20 @@ export const updateassistantname = async (req, res) => {
       { returnDocument: 'after' }
     ).select("-password");
 
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
     return res.status(200).json(user);
   } catch (error) {
     console.error("Update assistant error:", error);
     return res.status(500).json({ message: error.message || "Update assistant error" });
+  }
+};
+
+export const getImageKitAuth = (req, res) => {
+  try {
+    const authenticationParameters = imagekit.getAuthenticationParameters();
+    return res.status(200).json(authenticationParameters);
+  } catch (error) {
+    console.error("ImageKit auth error:", error);
+    return res.status(500).json({ message: "Failed to generate ImageKit auth params" });
   }
 };
 
