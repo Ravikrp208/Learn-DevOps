@@ -17,7 +17,7 @@ import {
   HiSpeakerWave,
   HiSparkles
 } from "react-icons/hi2";
-import defaultAvatar from "../assets/image1.png";
+import defaultAvatar from "../assets/image2.png";
 
 function Home() {
   const { userData, setUserData, serverurl } = useContext(userDataContext) || {};
@@ -39,7 +39,7 @@ function Home() {
   // References
   const recognitionRef = useRef(null);
   const inputRef = useRef(null);
-  const chatBottomRef = useRef(null);
+  const chatContainerRef = useRef(null);
 
   // Sync history with userData context
   useEffect(() => {
@@ -48,9 +48,14 @@ function Home() {
     }
   }, [userData]);
 
-  // Auto-scroll chat history to latest message
+  // Auto-scroll chat history container to latest message smoothly without scrolling window
   useEffect(() => {
-    chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: "smooth"
+      });
+    }
   }, [chatHistory, isProcessing]);
 
   // Initialize Speech Recognition
@@ -103,12 +108,28 @@ function Home() {
     };
   }, []);
 
-  // Text-To-Speech
+  // Text-To-Speech with smart summary spoken portion for long explanations
   const speakResponse = (text) => {
     if (!text || !window.speechSynthesis) return;
 
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
+
+    // Clean formatting characters for speech
+    const cleanText = text
+      .replace(/[#*_`~>-]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    // If answer is very long, speak first 2 key sentences or up to 250 characters for clear voice feedback
+    let spokenPortion = cleanText;
+    const sentences = cleanText.match(/[^.!?]+[.!?]+/g);
+    if (sentences && sentences.length > 2) {
+      spokenPortion = sentences.slice(0, 2).join(" ");
+    } else if (cleanText.length > 280) {
+      spokenPortion = cleanText.substring(0, 250) + "...";
+    }
+
+    const utterance = new SpeechSynthesisUtterance(spokenPortion);
     utterance.rate = 1.0;
     utterance.pitch = 1.05;
 
@@ -170,20 +191,18 @@ function Home() {
     }
   };
 
-  // Open action target URL
+  // Open action target URL only for explicit external app requests
   const triggerActionUrl = (type, userInput) => {
     let targetUrl = null;
     const cleanQ = encodeURIComponent((userInput || "").trim());
 
     switch (type) {
       case "youtube_play":
-      case "youtube_search":
       case "YOUTUBE_PLAY":
         targetUrl = `https://www.youtube.com/results?search_query=${cleanQ}`;
         break;
-      case "google_search":
-      case "GOOGLE_SEARCH":
-        targetUrl = `https://www.google.com/search?q=${cleanQ}`;
+      case "youtube_search":
+        targetUrl = `https://www.youtube.com/results?search_query=${cleanQ}`;
         break;
       case "instagram_open":
         targetUrl = "https://www.instagram.com";
@@ -215,10 +234,8 @@ function Home() {
       case "calculator_open":
         targetUrl = "https://www.google.com/search?q=calculator";
         break;
-      case "weather_show":
-        targetUrl = `https://www.google.com/search?q=weather+${cleanQ || "today"}`;
-        break;
       default:
+        // Do not popup tabs for informational / explanation questions
         targetUrl = null;
     }
 
@@ -256,11 +273,11 @@ function Home() {
       );
 
       const data = res.data;
-      const responseText = data.response || "Task completed.";
+      const responseText = data.response || "Here is the explanation for your query.";
       const actionType = data.type || "general";
       const userInput = data.userInput || promptToSend;
 
-      // Automatically open target url
+      // Trigger app opening if applicable
       triggerActionUrl(actionType, userInput);
 
       // Voice response
@@ -332,67 +349,152 @@ function Home() {
     }
   };
 
+  // Helper for formatting inline markdown (bold & code)
+  const formatInlineText = (str) => {
+    if (!str) return "";
+    const parts = str.split(/(\*\*.*?\*\*|`.*?`)/g);
+    return parts.map((part, pIdx) => {
+      if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
+        return (
+          <strong key={pIdx} className="font-bold text-cyan-300">
+            {part.slice(2, -2)}
+          </strong>
+        );
+      }
+      if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
+        return (
+          <code key={pIdx} className="px-2 py-0.5 rounded bg-slate-800 text-cyan-300 font-mono text-xs sm:text-sm border border-slate-700">
+            {part.slice(1, -1)}
+          </code>
+        );
+      }
+      return part;
+    });
+  };
+
+  // Rich Multi-line / Structured Explanation Renderer with larger clear typography
+  const renderFormattedResponse = (text) => {
+    if (!text) return null;
+    const lines = text.split("\n");
+
+    return (
+      <div className="space-y-2.5 text-sm sm:text-base text-slate-100 font-normal leading-relaxed">
+        {lines.map((line, lIdx) => {
+          const trimmed = line.trim();
+          if (!trimmed) {
+            return <div key={lIdx} className="h-1.5" />;
+          }
+
+          // Heading ### or ##
+          if (trimmed.startsWith("### ")) {
+            return (
+              <h4 key={lIdx} className="text-sm sm:text-base font-bold text-cyan-300 pt-1.5">
+                {trimmed.replace(/^###\s+/, "")}
+              </h4>
+            );
+          }
+          if (trimmed.startsWith("## ") || trimmed.startsWith("# ")) {
+            return (
+              <h3 key={lIdx} className="text-base sm:text-lg font-bold text-cyan-200 pt-2 pb-1 border-b border-slate-800">
+                {trimmed.replace(/^#+\s+/, "")}
+              </h3>
+            );
+          }
+
+          // Bullet points
+          if (trimmed.startsWith("* ") || trimmed.startsWith("- ") || trimmed.startsWith("• ")) {
+            const bulletContent = trimmed.replace(/^[\*\-•]\s+/, "");
+            return (
+              <div key={lIdx} className="flex items-start gap-2.5 pl-2 sm:pl-3 py-0.5">
+                <span className="text-cyan-400 text-base leading-tight flex-shrink-0">•</span>
+                <div className="text-slate-200 flex-1">{formatInlineText(bulletContent)}</div>
+              </div>
+            );
+          }
+
+          // Numbered list items
+          const numMatch = trimmed.match(/^(\d+\.)\s+(.+)$/);
+          if (numMatch) {
+            return (
+              <div key={lIdx} className="flex items-start gap-2.5 pl-2 sm:pl-3 py-0.5">
+                <span className="text-cyan-400 font-bold text-sm sm:text-base flex-shrink-0">{numMatch[1]}</span>
+                <div className="text-slate-200 flex-1">{formatInlineText(numMatch[2])}</div>
+              </div>
+            );
+          }
+
+          // Standard paragraph
+          return (
+            <p key={lIdx} className="text-slate-200">
+              {formatInlineText(trimmed)}
+            </p>
+          );
+        })}
+      </div>
+    );
+  };
+
   const suggestionChips = [
     "What is the date today?",
+    "Explain Java with key features",
+    "What is Docker and Kubernetes?",
     "Play trending songs on YouTube",
-    "Open WhatsApp",
-    "What's the weather today?",
-    "Who are you?",
+    "Who created you?",
   ];
 
   return (
-    <div className="w-full h-screen max-h-screen bg-[#030324] text-white flex flex-col justify-between relative overflow-hidden font-sans select-none">
+    <div className="w-full h-full min-h-full max-h-screen bg-[#030324] text-white flex flex-col justify-between relative overflow-hidden font-sans select-none">
       {/* Background Ambient Glow */}
-      <div className="absolute top-[-15%] left-[25%] w-[500px] h-[500px] bg-blue-600/15 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute bottom-[-15%] right-[25%] w-[500px] h-[500px] bg-purple-600/15 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute top-[-15%] left-[25%] w-[600px] h-[600px] bg-blue-600/15 rounded-full blur-[150px] pointer-events-none" />
+      <div className="absolute bottom-[-15%] right-[25%] w-[600px] h-[600px] bg-purple-600/15 rounded-full blur-[150px] pointer-events-none" />
 
-      {/* Top Header Navbar - Fixed at top, Full Width, Logout on Far Right */}
-      <header className="w-full flex-shrink-0 flex items-center justify-between py-3 px-4 sm:px-8 lg:px-12 bg-slate-900/80 backdrop-blur-xl border-b border-slate-800 shadow-md z-30">
+      {/* Top Header Navbar - Permanently at top, Full Width, Logout on Far Right */}
+      <header className="w-full flex-shrink-0 flex items-center justify-between py-3.5 px-4 sm:px-8 lg:px-12 bg-slate-900/95 backdrop-blur-xl border-b border-slate-800 shadow-xl z-50">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-300">
-            <HiCpuChip className="text-lg sm:text-xl" />
+          <div className="p-2.5 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-300">
+            <HiCpuChip className="text-xl sm:text-2xl" />
           </div>
           <div>
-            <h2 className="text-sm sm:text-base font-bold text-white tracking-wide">{assistantName}</h2>
-            <span className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-emerald-400 font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <h2 className="text-base sm:text-lg font-bold text-white tracking-wide">{assistantName}</h2>
+            <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               Online
             </span>
           </div>
         </div>
 
-        {/* Right Side: Clear Chat & Logout */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        {/* Right Side: Clear Chat & Logout Button */}
+        <div className="flex items-center gap-3">
           {chatHistory.length > 0 && (
             <button
               onClick={handleClearHistory}
-              className="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-slate-300 hover:text-white text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white text-xs sm:text-sm font-medium transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
               title="Clear chat history"
             >
-              <HiTrash className="text-sm text-slate-400" />
+              <HiTrash className="text-base text-slate-400" />
               <span className="hidden sm:inline">Clear</span>
             </button>
           )}
 
           <button
             onClick={handleLogOut}
-            className="px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-400 hover:text-red-300 text-xs sm:text-sm font-semibold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+            className="px-4 sm:px-5 py-2 rounded-xl bg-red-600 hover:bg-red-500 border border-red-400/40 text-white text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-2 shadow-md hover:shadow-red-500/20"
             title="Logout"
           >
-            <HiArrowRightOnRectangle className="text-base" />
+            <HiArrowRightOnRectangle className="text-base sm:text-lg" />
             <span>Logout</span>
           </button>
         </div>
       </header>
 
-      {/* Main Content: Avatar at top, Chat in middle, Message box at bottom */}
-      <main className="w-full max-w-3xl mx-auto px-4 flex-1 flex flex-col justify-between py-2 sm:py-3 z-10 min-h-0 overflow-hidden">
+      {/* Main Content Area: Expanded Width for High Visibility & Readability */}
+      <main className="w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 flex-1 flex flex-col justify-start py-2.5 sm:py-3.5 z-10 min-h-0 overflow-hidden">
         
-        {/* Top Assistant Avatar */}
-        <div className="flex-shrink-0 flex flex-col items-center py-1 sm:py-2">
+        {/* 1. Assistant Avatar Preview */}
+        <div className="flex-shrink-0 flex flex-col items-center py-1">
           <div className="relative group flex flex-col items-center">
             <div
-              className={`absolute -inset-2.5 rounded-full blur-xl transition-all duration-500 pointer-events-none ${
+              className={`absolute -inset-3 rounded-full blur-xl transition-all duration-500 pointer-events-none ${
                 isSpeaking
                   ? "bg-gradient-to-r from-cyan-400 to-blue-600 opacity-90 scale-110 animate-pulse"
                   : isListening
@@ -404,7 +506,7 @@ function Home() {
             />
 
             <div
-              className={`relative rounded-full p-1 bg-gradient-to-tr from-cyan-500 via-blue-500 to-purple-600 shadow-[0_0_20px_rgba(59,130,246,0.35)] transition-all ${
+              className={`relative rounded-full p-1.5 bg-gradient-to-tr from-cyan-500 via-blue-500 to-purple-600 shadow-[0_0_25px_rgba(59,130,246,0.4)] transition-all ${
                 chatHistory.length > 0 ? "w-16 h-16 sm:w-20 sm:h-20" : "w-24 h-24 sm:w-32 sm:h-32"
               }`}
             >
@@ -421,27 +523,27 @@ function Home() {
 
                 {/* Speaking Visual Wave */}
                 {isSpeaking && (
-                  <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center gap-1">
-                    <span className="w-1 h-4 sm:w-1.5 sm:h-5 bg-cyan-400 rounded-full animate-bounce [animation-delay:0ms]" />
-                    <span className="w-1 h-6 sm:w-1.5 sm:h-8 bg-blue-400 rounded-full animate-bounce [animation-delay:150ms]" />
-                    <span className="w-1 h-4 sm:w-1.5 sm:h-5 bg-cyan-300 rounded-full animate-bounce [animation-delay:300ms]" />
+                  <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center gap-1.5">
+                    <span className="w-1.5 h-4 sm:w-2 sm:h-5 bg-cyan-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                    <span className="w-1.5 h-6 sm:w-2 sm:h-8 bg-blue-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                    <span className="w-1.5 h-4 sm:w-2 sm:h-5 bg-cyan-300 rounded-full animate-bounce [animation-delay:300ms]" />
                   </div>
                 )}
 
                 {/* Listening Wave */}
                 {isListening && !isSpeaking && (
-                  <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center gap-1">
-                    <span className="w-1.5 h-5 bg-emerald-400 rounded-full animate-ping" />
-                    <span className="w-1.5 h-7 bg-teal-400 rounded-full animate-bounce" />
+                  <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center gap-1.5">
+                    <span className="w-2 h-5 bg-emerald-400 rounded-full animate-ping" />
+                    <span className="w-2 h-7 bg-teal-400 rounded-full animate-bounce" />
                   </div>
                 )}
               </div>
             </div>
 
             {/* Status Badge */}
-            <div className="mt-1.5 flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-900/90 border border-slate-700/80 shadow-md">
+            <div className="mt-1.5 flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/90 border border-slate-700/80 shadow-md">
               <span
-                className={`w-2 h-2 rounded-full ${
+                className={`w-2.5 h-2.5 rounded-full ${
                   isSpeaking
                     ? "bg-cyan-400 animate-ping"
                     : isListening
@@ -451,159 +553,25 @@ function Home() {
                     : "bg-emerald-400"
                 }`}
               />
-              <span className="text-[10px] sm:text-[11px] font-semibold text-slate-200">
+              <span className="text-xs sm:text-sm font-semibold text-slate-200">
                 {isSpeaking
                   ? "Speaking..."
                   : isListening
                   ? "Listening..."
                   : isProcessing
-                  ? "Thinking..."
+                  ? "Thinking & Explaining..."
                   : "Ready to assist you"}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Middle Conversation Feed / Chat History */}
-        <div className="w-full flex-1 min-h-0 overflow-y-auto space-y-3 px-2 sm:px-4 py-2 my-1.5 rounded-2xl bg-slate-950/40 backdrop-blur-md border border-slate-800/60 shadow-inner scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-          {chatHistory.length === 0 ? (
-            <div className="h-full min-h-[140px] flex flex-col items-center justify-center text-center p-3">
-              <div className="p-2.5 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-cyan-400 mb-2">
-                <HiSparkles className="text-xl sm:text-2xl animate-pulse" />
-              </div>
-              <h3 className="text-sm sm:text-base font-bold text-white mb-1">
-                How can {assistantName} help you today?
-              </h3>
-              <p className="text-[11px] sm:text-xs text-slate-400 max-w-md mb-3">
-                Ask questions, search the web, play music, or open apps by typing or using your voice.
-              </p>
-
-              {/* Suggestion Chips */}
-              <div className="flex flex-wrap gap-1.5 sm:gap-2 justify-center max-w-lg">
-                {suggestionChips.map((chip, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleExecuteQuery(chip)}
-                    disabled={isProcessing}
-                    className="px-2.5 py-1 rounded-full bg-slate-900 hover:bg-blue-600/20 border border-slate-700/80 hover:border-blue-500/50 text-[11px] sm:text-xs text-slate-300 hover:text-cyan-200 transition-all cursor-pointer shadow-sm disabled:opacity-50"
-                  >
-                    {chip}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <>
-              {chatHistory.map((item, index) => (
-                <div key={index} className="space-y-2 animate-fadeIn">
-                  {/* User Question Bubble (Right Aligned) */}
-                  {item.prompt && (
-                    <div className="flex justify-end items-end gap-1.5 sm:gap-2">
-                      <div className="max-w-[85%] sm:max-w-[75%] px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-2xl rounded-tr-sm bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs sm:text-sm font-medium shadow-md">
-                        <p className="leading-relaxed">{item.prompt}</p>
-                      </div>
-                      <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-blue-700/40 border border-blue-400/40 flex items-center justify-center text-blue-300 text-[10px] sm:text-xs flex-shrink-0 mb-0.5">
-                        <HiUser />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Assistant Answer Card (Left Aligned) */}
-                  {item.response && (
-                    <div className="flex justify-start items-start gap-2 sm:gap-2.5">
-                      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full overflow-hidden border border-cyan-500/40 flex-shrink-0 mt-0.5 shadow-sm">
-                        <img
-                          src={assistantImage || defaultAvatar}
-                          alt={assistantName}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-
-                      <div className="max-w-[90%] sm:max-w-[85%] p-3 sm:p-3.5 rounded-2xl rounded-tl-sm bg-slate-900/90 border border-slate-700/90 shadow-xl text-slate-100">
-                        {/* Header: Name + Action Badge */}
-                        <div className="flex items-center justify-between gap-2 mb-1 pb-1 border-b border-slate-800">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[11px] sm:text-xs font-bold text-cyan-300">{assistantName}</span>
-                            {item.type && item.type !== "general" && (
-                              <span className="px-1.5 py-0.5 rounded bg-blue-500/15 border border-blue-500/30 text-[9px] sm:text-[10px] font-semibold text-blue-300 tracking-wide uppercase">
-                                {item.type.replace(/_/g, " ")}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Quick Action: Re-speak & Copy */}
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => speakResponse(item.response)}
-                              className="p-1 text-slate-400 hover:text-cyan-300 transition-colors cursor-pointer"
-                              title="Listen again"
-                            >
-                              <HiSpeakerWave className="text-xs" />
-                            </button>
-                            <button
-                              onClick={() => handleCopy(item.response, index)}
-                              className="p-1 text-slate-400 hover:text-white transition-colors cursor-pointer"
-                              title="Copy answer"
-                            >
-                              {copiedIndex === index ? (
-                                <HiCheck className="text-xs text-emerald-400" />
-                              ) : (
-                                <HiClipboardDocument className="text-xs" />
-                              )}
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Answer Text */}
-                        <p className="text-xs sm:text-sm text-cyan-50 font-normal leading-relaxed whitespace-pre-wrap select-text">
-                          {item.response}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              {/* Active Thinking / Processing Indicator */}
-              {isProcessing && (
-                <div className="flex justify-start items-start gap-2 sm:gap-2.5 animate-pulse">
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full overflow-hidden border border-purple-500/40 flex-shrink-0 mt-0.5">
-                    <img
-                      src={assistantImage || defaultAvatar}
-                      alt={assistantName}
-                      className="w-full h-full object-cover opacity-80"
-                    />
-                  </div>
-                  <div className="px-3.5 py-2.5 rounded-2xl rounded-tl-sm bg-slate-900/90 border border-slate-700/80 shadow-md flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-cyan-400 animate-bounce [animation-delay:0ms]" />
-                    <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-blue-400 animate-bounce [animation-delay:150ms]" />
-                    <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-purple-400 animate-bounce [animation-delay:300ms]" />
-                    <span className="text-[11px] sm:text-xs text-slate-400 ml-1 font-medium">{assistantName} is thinking...</span>
-                  </div>
-                </div>
-              )}
-
-              <div ref={chatBottomRef} />
-            </>
-          )}
-        </div>
-
-        {/* Error Alert */}
-        {errorMessage && (
-          <div className="w-full flex-shrink-0 my-1 px-3 py-1.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex items-center justify-between">
-            <span>{errorMessage}</span>
-            <button onClick={() => setErrorMessage("")} className="text-rose-400 hover:text-white p-0.5">
-              <HiXMark className="text-base" />
-            </button>
-          </div>
-        )}
-
-        {/* Bottom Message / Search Input Div - Strictly Anchored at Bottom */}
-        <div className="w-full flex-shrink-0 pt-1 pb-1">
+        {/* 2. Top Message / Search / Ask Me Section - Above the Chat */}
+        <div className="w-full flex-shrink-0 pt-2.5 pb-2.5">
           <form onSubmit={handleFormSubmit} className="relative group">
-            <div className="relative flex items-center bg-slate-900/95 backdrop-blur-xl border-2 border-slate-700 group-focus-within:border-cyan-400 rounded-2xl px-3 sm:px-4 py-2 sm:py-2.5 shadow-2xl transition-all">
+            <div className="relative flex items-center bg-slate-900/95 backdrop-blur-xl border-2 border-slate-700 group-focus-within:border-cyan-400 rounded-2xl px-4 sm:px-5 py-2.5 sm:py-3.5 shadow-2xl transition-all">
               {/* Search Icon */}
-              <div className="mr-2 text-cyan-400 text-base sm:text-lg flex-shrink-0">
+              <div className="mr-3 text-cyan-400 text-lg sm:text-xl flex-shrink-0">
                 <HiMagnifyingGlass />
               </div>
 
@@ -615,11 +583,11 @@ function Home() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={
                   isListening
-                    ? "Listening... Ask me anything..."
-                    : "Ask AI, search web, open YouTube, or click mic..."
+                    ? "Listening... Ask any question or search topic..."
+                    : "Ask anything, search topics, explain concepts, open apps, or click mic..."
                 }
                 disabled={isProcessing}
-                className="w-full bg-transparent text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-none pr-2 disabled:opacity-50"
+                className="w-full bg-transparent text-white placeholder-slate-400 text-sm sm:text-base font-medium focus:outline-none pr-3 disabled:opacity-50"
               />
 
               {/* Clear Text Button */}
@@ -627,9 +595,9 @@ function Home() {
                 <button
                   type="button"
                   onClick={() => setSearchQuery("")}
-                  className="p-1 mr-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                  className="p-1.5 mr-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
                 >
-                  <HiXMark className="text-base" />
+                  <HiXMark className="text-lg" />
                 </button>
               )}
 
@@ -639,15 +607,15 @@ function Home() {
                 onClick={handleToggleListening}
                 disabled={isProcessing}
                 title={isListening ? "Stop listening" : "Speak to assistant"}
-                className={`p-2 sm:px-3 sm:py-1.5 rounded-xl border flex items-center gap-1.5 transition-all cursor-pointer mr-1.5 flex-shrink-0 ${
+                className={`p-2.5 sm:px-4 sm:py-2 rounded-xl border flex items-center gap-2 transition-all cursor-pointer mr-2 flex-shrink-0 ${
                   isListening
                     ? "bg-emerald-500/25 border-emerald-400 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.4)] animate-pulse"
                     : "bg-slate-800 hover:bg-slate-700 border-slate-700 text-blue-400 hover:text-cyan-300"
                 }`}
               >
-                <HiMicrophone className={`text-base sm:text-lg ${isListening ? "animate-bounce" : ""}`} />
+                <HiMicrophone className={`text-lg sm:text-xl ${isListening ? "animate-bounce" : ""}`} />
                 {isListening && (
-                  <span className="hidden sm:inline text-[11px] font-bold text-emerald-300">Listening</span>
+                  <span className="hidden sm:inline text-xs font-bold text-emerald-300">Listening</span>
                 )}
               </button>
 
@@ -655,13 +623,13 @@ function Home() {
               <button
                 type="submit"
                 disabled={isProcessing || !searchQuery.trim()}
-                className="p-2 sm:px-4 sm:py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold text-xs sm:text-sm border border-blue-400/40 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center justify-center gap-1 flex-shrink-0"
+                className="p-2.5 sm:px-5 sm:py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold text-xs sm:text-base border border-blue-400/40 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center justify-center gap-1.5 flex-shrink-0 shadow-md"
               >
                 {isProcessing ? (
-                  <HiArrowPath className="text-base animate-spin" />
+                  <HiArrowPath className="text-lg animate-spin" />
                 ) : (
                   <>
-                    <HiPaperAirplane className="text-sm" />
+                    <HiPaperAirplane className="text-base" />
                     <span className="hidden sm:inline">Ask</span>
                   </>
                 )}
@@ -669,10 +637,143 @@ function Home() {
             </div>
           </form>
         </div>
+
+        {/* Error Alert */}
+        {errorMessage && (
+          <div className="w-full flex-shrink-0 my-1.5 px-4 py-2 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs sm:text-sm flex items-center justify-between">
+            <span>{errorMessage}</span>
+            <button onClick={() => setErrorMessage("")} className="text-rose-400 hover:text-white p-0.5">
+              <HiXMark className="text-lg" />
+            </button>
+          </div>
+        )}
+
+        {/* 3. Conversation Feed / Chat History - Placed Below Search Box */}
+        <div 
+          ref={chatContainerRef}
+          className="w-full flex-1 min-h-0 overflow-y-auto space-y-4 px-3 sm:px-5 py-3 my-1 rounded-2xl bg-slate-950/40 backdrop-blur-md border border-slate-800/60 shadow-inner scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent"
+        >
+          {chatHistory.length === 0 ? (
+            <div className="h-full min-h-[160px] flex flex-col items-center justify-center text-center p-4">
+              <div className="p-3 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-cyan-400 mb-2.5">
+                <HiSparkles className="text-2xl sm:text-3xl animate-pulse" />
+              </div>
+              <h3 className="text-base sm:text-lg font-bold text-white mb-1.5">
+                How can {assistantName} help you today?
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-400 max-w-lg mb-4">
+                Ask any question, search topics, explain concepts, or open apps with full detailed explanations right here.
+              </p>
+
+              {/* Suggestion Chips */}
+              <div className="flex flex-wrap gap-2 justify-center max-w-xl">
+                {suggestionChips.map((chip, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleExecuteQuery(chip)}
+                    disabled={isProcessing}
+                    className="px-3.5 py-1.5 rounded-full bg-slate-900 hover:bg-blue-600/20 border border-slate-700/80 hover:border-blue-500/50 text-xs sm:text-sm text-slate-300 hover:text-cyan-200 transition-all cursor-pointer shadow-sm disabled:opacity-50"
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <>
+              {chatHistory.map((item, index) => (
+                <div key={index} className="space-y-2.5 animate-fadeIn">
+                  {/* User Question Bubble (Right Aligned) */}
+                  {item.prompt && (
+                    <div className="flex justify-end items-end gap-2 sm:gap-2.5">
+                      <div className="max-w-[85%] sm:max-w-[75%] px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl rounded-tr-sm bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm sm:text-base font-medium shadow-md">
+                        <p className="leading-relaxed">{item.prompt}</p>
+                      </div>
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-blue-700/40 border border-blue-400/40 flex items-center justify-center text-blue-300 text-xs sm:text-sm flex-shrink-0 mb-0.5">
+                        <HiUser />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Assistant Full Explanation Card (Left Aligned) */}
+                  {item.response && (
+                    <div className="flex justify-start items-start gap-2.5 sm:gap-3">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden border border-cyan-500/40 flex-shrink-0 mt-0.5 shadow-sm">
+                        <img
+                          src={assistantImage || defaultAvatar}
+                          alt={assistantName}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+
+                      <div className="max-w-[94%] sm:max-w-[90%] p-4 sm:p-5 rounded-2xl rounded-tl-sm bg-slate-900/90 border border-slate-700/90 shadow-xl text-slate-100">
+                        {/* Header: Name + Action Badge */}
+                        <div className="flex items-center justify-between gap-2 mb-2.5 pb-2 border-b border-slate-800">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs sm:text-sm font-bold text-cyan-300">{assistantName}</span>
+                            {item.type && item.type !== "general" && (
+                              <span className="px-2 py-0.5 rounded bg-blue-500/15 border border-blue-500/30 text-[10px] sm:text-xs font-semibold text-blue-300 tracking-wide uppercase">
+                                {item.type.replace(/_/g, " ")}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Quick Action: Re-speak & Copy */}
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => speakResponse(item.response)}
+                              className="p-1.5 text-slate-400 hover:text-cyan-300 transition-colors cursor-pointer"
+                              title="Listen to explanation"
+                            >
+                              <HiSpeakerWave className="text-sm sm:text-base" />
+                            </button>
+                            <button
+                              onClick={() => handleCopy(item.response, index)}
+                              className="p-1.5 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                              title="Copy answer"
+                            >
+                              {copiedIndex === index ? (
+                                <HiCheck className="text-sm sm:text-base text-emerald-400" />
+                              ) : (
+                                <HiClipboardDocument className="text-sm sm:text-base" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Full Formatted Explanation */}
+                        {renderFormattedResponse(item.response)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {/* Active Thinking / Processing Indicator */}
+              {isProcessing && (
+                <div className="flex justify-start items-start gap-2.5 sm:gap-3 animate-pulse">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden border border-purple-500/40 flex-shrink-0 mt-0.5">
+                    <img
+                      src={assistantImage || defaultAvatar}
+                      alt={assistantName}
+                      className="w-full h-full object-cover opacity-80"
+                    />
+                  </div>
+                  <div className="px-4 py-3 rounded-2xl rounded-tl-sm bg-slate-900/90 border border-slate-700/80 shadow-md flex items-center gap-2.5">
+                    <span className="w-2 h-2 rounded-full bg-cyan-400 animate-bounce [animation-delay:0ms]" />
+                    <span className="w-2 h-2 rounded-full bg-blue-400 animate-bounce [animation-delay:150ms]" />
+                    <span className="w-2 h-2 rounded-full bg-purple-400 animate-bounce [animation-delay:300ms]" />
+                    <span className="text-xs sm:text-sm text-slate-300 ml-1 font-medium">{assistantName} is preparing full explanation...</span>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </main>
 
       {/* Minimal Clean Footer */}
-      <footer className="w-full flex-shrink-0 text-center py-2 text-[11px] text-slate-500 border-t border-slate-900/80">
+      <footer className="w-full flex-shrink-0 text-center py-2 text-xs text-slate-500 border-t border-slate-900/80">
         AI Virtual Assistant • Powered by Gemini & Voice
       </footer>
     </div>

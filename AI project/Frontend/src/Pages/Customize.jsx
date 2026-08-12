@@ -10,7 +10,7 @@ import image3 from "../assets/image3.png";
 import image4 from "../assets/image4.png";
 import image5 from "../assets/image5.png";
 
-const presetImages = [image1, image2, image3, image4, image5];
+const presetImages = [image2, image1, image3, image4, image5];
 
 const Customize = () => {
   const navigate = useNavigate();
