@@ -17,9 +17,18 @@ const userSchema = new mongoose.Schema(
       required: true,
     },
 
+    assistantImage: {
+      type: String,
+      default: "",
+    },
+
     history: [
       {
-        type: String,
+        prompt: { type: String, default: "" },
+        response: { type: String, default: "" },
+        type: { type: String, default: "general" },
+        userInput: { type: String, default: "" },
+        createdAt: { type: Date, default: Date.now },
       },
     ],
   },

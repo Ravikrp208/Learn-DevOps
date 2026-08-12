@@ -87,6 +87,39 @@ export const askToAssistant = async (req, res) => {
     const userName = user?.name || "User";
     const assistantName = user?.assistantName || "Shifra";
 
+    // Helper to save to user history and send response
+    const sendAndSave = async (type, userInput, responseText) => {
+      const historyEntry = {
+        prompt: cleanPrompt,
+        response: responseText,
+        type: type,
+        userInput: userInput,
+        createdAt: new Date()
+      };
+
+      try {
+        if (req.userId) {
+          await User.findByIdAndUpdate(req.userId, {
+            $push: {
+              history: {
+                $each: [historyEntry],
+                $slice: -100 // keep last 100 entries
+              }
+            }
+          });
+        }
+      } catch (err) {
+        console.error("Save chat history error:", err);
+      }
+
+      return res.json({
+        type,
+        userInput,
+        response: responseText,
+        historyEntry
+      });
+    };
+
     // Direct instant check for creator & identity queries
     const lowerPrompt = cleanPrompt.toLowerCase();
     if (
@@ -98,11 +131,7 @@ export const askToAssistant = async (req, res) => {
       lowerPrompt.includes("who is your master") ||
       lowerPrompt.includes("who is your boss")
     ) {
-      return res.json({
-        type: "general",
-        userInput: cleanPrompt,
-        response: "I am a virtual assistant created by Ravi BaBy."
-      });
+      return sendAndSave("general", cleanPrompt, "I am a virtual assistant created by Ravi BaBy.");
     }
 
     if (
@@ -113,11 +142,7 @@ export const askToAssistant = async (req, res) => {
       lowerPrompt === "introduce yourself" ||
       lowerPrompt === "tell me about yourself"
     ) {
-      return res.json({
-        type: "general",
-        userInput: cleanPrompt,
-        response: `I am ${assistantName}, a virtual assistant created by Ravi BaBy.`
-      });
+      return sendAndSave("general", cleanPrompt, `I am ${assistantName}, a virtual assistant created by Ravi BaBy.`);
     }
 
     // Fast pattern matching for popular voice/text commands
@@ -125,49 +150,41 @@ export const askToAssistant = async (req, res) => {
     if (/^(play|bajao|chalao)\s+(.+?)\s*(on youtube|pe)?$/i.test(lowerPrompt) || /^youtube\s+(pe|me)?\s*(.+?)\s*(bajao|chalao|play)$/i.test(lowerPrompt)) {
       const match = lowerPrompt.match(/(?:play|bajao|chalao)\s+(.+?)(?:\s+(?:on youtube|pe))?$/i) || lowerPrompt.match(/^youtube\s+(?:pe|me)?\s*(.+?)\s*(?:bajao|chalao|play)$/i);
       const song = match?.[1]?.replace(/on youtube|pe|me|play|bajao|chalao/gi, '').trim() || cleanPrompt;
-      return res.json({
-        type: 'youtube_play',
-        userInput: song,
-        response: `Playing ${song} on YouTube.`
-      });
+      return sendAndSave('youtube_play', song, `Playing ${song} on YouTube.`);
     }
 
     if (/^(search|dhundo)\s+(.+?)\s*(on youtube|youtube me|youtube pe)$/i.test(lowerPrompt) || /^youtube\s+(me|pe)?\s*(search karo|dhundo)\s+(.+)$/i.test(lowerPrompt)) {
       const match = lowerPrompt.match(/(?:search|dhundo)\s+(.+?)(?:\s+(?:on youtube|youtube me|youtube pe))?$/i) || lowerPrompt.match(/youtube\s+(?:me|pe)?\s*(?:search karo|dhundo)\s+(.+)$/i);
       const query = match?.[1] || match?.[2] || cleanPrompt;
       const cleanQ = query.replace(/on youtube|youtube me|youtube pe|search|dhundo|karo/gi, '').trim();
-      return res.json({
-        type: 'youtube_search',
-        userInput: cleanQ,
-        response: `Searching for ${cleanQ} on YouTube.`
-      });
+      return sendAndSave('youtube_search', cleanQ, `Searching for ${cleanQ} on YouTube.`);
     }
 
-    // 2. Open App shortcuts (WhatsApp, Instagram, Spotify, GitHub, ChatGPT, Gmail, Facebook, Calculator)
+    // 2. Open App shortcuts
     if (lowerPrompt.includes("whatsapp") && (lowerPrompt.includes("open") || lowerPrompt.includes("kholo"))) {
-      return res.json({ type: 'whatsapp_open', userInput: "WhatsApp", response: "Opening WhatsApp Web." });
+      return sendAndSave('whatsapp_open', "WhatsApp", "Opening WhatsApp Web.");
     }
     if (lowerPrompt.includes("instagram") && (lowerPrompt.includes("open") || lowerPrompt.includes("kholo"))) {
-      return res.json({ type: 'instagram_open', userInput: "Instagram", response: "Opening Instagram." });
+      return sendAndSave('instagram_open', "Instagram", "Opening Instagram.");
     }
     if (lowerPrompt.includes("spotify") && (lowerPrompt.includes("open") || lowerPrompt.includes("kholo") || lowerPrompt.includes("play"))) {
       const q = cleanPrompt.replace(/open|kholo|spotify|pe|gana|songs|play/gi, '').trim();
-      return res.json({ type: 'spotify_open', userInput: q || "Spotify", response: "Opening Spotify." });
+      return sendAndSave('spotify_open', q || "Spotify", "Opening Spotify.");
     }
     if (lowerPrompt.includes("github") && (lowerPrompt.includes("open") || lowerPrompt.includes("kholo"))) {
-      return res.json({ type: 'github_open', userInput: "GitHub", response: "Opening GitHub." });
+      return sendAndSave('github_open', "GitHub", "Opening GitHub.");
     }
     if (lowerPrompt.includes("chatgpt") && (lowerPrompt.includes("open") || lowerPrompt.includes("kholo"))) {
-      return res.json({ type: 'chatgpt_open', userInput: "ChatGPT", response: "Opening ChatGPT." });
+      return sendAndSave('chatgpt_open', "ChatGPT", "Opening ChatGPT.");
     }
     if ((lowerPrompt.includes("gmail") || lowerPrompt.includes("email")) && (lowerPrompt.includes("open") || lowerPrompt.includes("kholo"))) {
-      return res.json({ type: 'gmail_open', userInput: "Gmail", response: "Opening Gmail." });
+      return sendAndSave('gmail_open', "Gmail", "Opening Gmail.");
     }
     if (lowerPrompt.includes("facebook") && (lowerPrompt.includes("open") || lowerPrompt.includes("kholo"))) {
-      return res.json({ type: 'facebook_open', userInput: "Facebook", response: "Opening Facebook." });
+      return sendAndSave('facebook_open', "Facebook", "Opening Facebook.");
     }
     if (lowerPrompt.includes("calculator") && (lowerPrompt.includes("open") || lowerPrompt.includes("kholo"))) {
-      return res.json({ type: 'calculator_open', userInput: "Calculator", response: "Opening Calculator." });
+      return sendAndSave('calculator_open', "Calculator", "Opening Calculator.");
     }
 
     // AI Understanding via Gemini
@@ -184,11 +201,8 @@ export const askToAssistant = async (req, res) => {
     }
 
     if (!gemResult) {
-      return res.json({
-        type: "general",
-        userInput: cleanPrompt,
-        response: result ? result.replace(/```json|```/g, "").trim() : "I am here to assist you."
-      });
+      const fallbackAns = result ? result.replace(/```json|```/g, "").trim() : "I am here to assist you.";
+      return sendAndSave("general", cleanPrompt, fallbackAns);
     }
 
     const type = (gemResult.type || "general").toLowerCase().replace(/-/g, "_");
@@ -196,135 +210,73 @@ export const askToAssistant = async (req, res) => {
 
     switch (type) {
       case 'get_date':
-        return res.json({
-          type: 'get_date',
-          userInput: extractedQuery,
-          response: `Today is ${moment().format("dddd, MMMM Do, YYYY")}`
-        });
+        return sendAndSave('get_date', extractedQuery, `Today is ${moment().format("dddd, MMMM Do, YYYY")}`);
 
       case 'get_time':
-        return res.json({
-          type: 'get_time',
-          userInput: extractedQuery,
-          response: `The current time is ${moment().format("h:mm A")}`
-        });
+        return sendAndSave('get_time', extractedQuery, `The current time is ${moment().format("h:mm A")}`);
 
       case 'get_day':
-        return res.json({
-          type: 'get_day',
-          userInput: extractedQuery,
-          response: `Today is ${moment().format("dddd")}`
-        });
+        return sendAndSave('get_day', extractedQuery, `Today is ${moment().format("dddd")}`);
 
       case 'get_month':
-        return res.json({
-          type: 'get_month',
-          userInput: extractedQuery,
-          response: `The current month is ${moment().format("MMMM")}`
-        });
+        return sendAndSave('get_month', extractedQuery, `The current month is ${moment().format("MMMM")}`);
 
       case 'google_search':
-        return res.json({
-          type: 'google_search',
-          userInput: extractedQuery,
-          response: gemResult.response || `Searching for ${extractedQuery} on Google`
-        });
+        return sendAndSave('google_search', extractedQuery, gemResult.response || `Searching for ${extractedQuery} on Google`);
 
       case 'youtube_search':
-        return res.json({
-          type: 'youtube_search',
-          userInput: extractedQuery,
-          response: gemResult.response || `Searching for ${extractedQuery} on YouTube`
-        });
+        return sendAndSave('youtube_search', extractedQuery, gemResult.response || `Searching for ${extractedQuery} on YouTube`);
 
       case 'youtube_play':
-        return res.json({
-          type: 'youtube_play',
-          userInput: extractedQuery,
-          response: gemResult.response || `Playing ${extractedQuery} on YouTube`
-        });
+        return sendAndSave('youtube_play', extractedQuery, gemResult.response || `Playing ${extractedQuery} on YouTube`);
 
       case 'whatsapp_open':
-        return res.json({
-          type: 'whatsapp_open',
-          userInput: extractedQuery,
-          response: gemResult.response || "Opening WhatsApp"
-        });
+        return sendAndSave('whatsapp_open', extractedQuery, gemResult.response || "Opening WhatsApp");
 
       case 'instagram_open':
-        return res.json({
-          type: 'instagram_open',
-          userInput: extractedQuery,
-          response: gemResult.response || "Opening Instagram"
-        });
+        return sendAndSave('instagram_open', extractedQuery, gemResult.response || "Opening Instagram");
 
       case 'facebook_open':
-        return res.json({
-          type: 'facebook_open',
-          userInput: extractedQuery,
-          response: gemResult.response || "Opening Facebook"
-        });
+        return sendAndSave('facebook_open', extractedQuery, gemResult.response || "Opening Facebook");
 
       case 'spotify_open':
-        return res.json({
-          type: 'spotify_open',
-          userInput: extractedQuery,
-          response: gemResult.response || "Opening Spotify"
-        });
+        return sendAndSave('spotify_open', extractedQuery, gemResult.response || "Opening Spotify");
 
       case 'github_open':
-        return res.json({
-          type: 'github_open',
-          userInput: extractedQuery,
-          response: gemResult.response || "Opening GitHub"
-        });
+        return sendAndSave('github_open', extractedQuery, gemResult.response || "Opening GitHub");
 
       case 'chatgpt_open':
-        return res.json({
-          type: 'chatgpt_open',
-          userInput: extractedQuery,
-          response: gemResult.response || "Opening ChatGPT"
-        });
+        return sendAndSave('chatgpt_open', extractedQuery, gemResult.response || "Opening ChatGPT");
 
       case 'gmail_open':
-        return res.json({
-          type: 'gmail_open',
-          userInput: extractedQuery,
-          response: gemResult.response || "Opening Gmail"
-        });
+        return sendAndSave('gmail_open', extractedQuery, gemResult.response || "Opening Gmail");
 
       case 'maps_open':
-        return res.json({
-          type: 'maps_open',
-          userInput: extractedQuery,
-          response: gemResult.response || `Opening Google Maps for ${extractedQuery}`
-        });
+        return sendAndSave('maps_open', extractedQuery, gemResult.response || `Opening Google Maps for ${extractedQuery}`);
 
       case 'calculator_open':
-        return res.json({
-          type: 'calculator_open',
-          userInput: extractedQuery,
-          response: gemResult.response || "Opening calculator for you"
-        });
+        return sendAndSave('calculator_open', extractedQuery, gemResult.response || "Opening calculator for you");
 
       case 'weather_show':
-        return res.json({
-          type: 'weather_show',
-          userInput: extractedQuery,
-          response: gemResult.response || `Here is the current weather update for ${extractedQuery}`
-        });
+        return sendAndSave('weather_show', extractedQuery, gemResult.response || `Here is the current weather update for ${extractedQuery}`);
 
       case 'general':
       default:
-        return res.json({
-          type: 'general',
-          userInput: extractedQuery,
-          response: gemResult.response || "I'm here to assist you."
-        });
+        return sendAndSave('general', extractedQuery, gemResult.response || "I'm here to assist you.");
     }
 
   } catch (error) {
     console.error("Ask to assistant error:", error);
     return res.status(500).json({ message: "Ask to assistant error", error: error.message });
+  }
+};
+
+export const clearHistory = async (req, res) => {
+  try {
+    await User.findByIdAndUpdate(req.userId, { $set: { history: [] } });
+    return res.status(200).json({ message: "Chat history cleared successfully" });
+  } catch (error) {
+    console.error("Clear history error:", error);
+    return res.status(500).json({ message: "Failed to clear history" });
   }
 };
