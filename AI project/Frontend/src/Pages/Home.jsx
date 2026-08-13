@@ -5,7 +5,6 @@ import axios from "axios";
 import {
   HiMicrophone,
   HiPaperAirplane,
-  HiMagnifyingGlass,
   HiArrowRightOnRectangle,
   HiXMark,
   HiArrowPath,
@@ -15,7 +14,12 @@ import {
   HiClipboardDocument,
   HiCheck,
   HiSpeakerWave,
-  HiSparkles
+  HiSparkles,
+  HiPlus,
+  HiBars3,
+  HiChatBubbleLeftRight,
+  HiCodeBracket,
+  HiAdjustmentsHorizontal
 } from "react-icons/hi2";
 import defaultAvatar from "../assets/image2.png";
 
@@ -23,9 +27,10 @@ function Home() {
   const { userData, setUserData, serverurl } = useContext(userDataContext) || {};
   const navigate = useNavigate();
 
-  // Assistant Info
+  // Assistant & User Info
   const assistantName = userData?.assistantName || "Shifra";
   const assistantImage = userData?.assistantImage || defaultAvatar;
+  const userName = userData?.name || "Ravi";
 
   // UI & Interaction States
   const [searchQuery, setSearchQuery] = useState("");
@@ -35,6 +40,8 @@ function Home() {
   const [errorMessage, setErrorMessage] = useState("");
   const [chatHistory, setChatHistory] = useState(userData?.history || []);
   const [copiedIndex, setCopiedIndex] = useState(null);
+  const [copiedCodeId, setCopiedCodeId] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // References
   const recognitionRef = useRef(null);
@@ -48,7 +55,7 @@ function Home() {
     }
   }, [userData]);
 
-  // Auto-scroll chat history container to latest message smoothly without scrolling window
+  // Auto-scroll chat history container to latest message smoothly
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTo({
@@ -108,49 +115,119 @@ function Home() {
     };
   }, []);
 
-  // Text-To-Speech with smart summary spoken portion for long explanations
+  // Helper: Select the highest-quality realistic natural female (girl) voice available on the device
+  const getBestFemaleVoice = () => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return null;
+    const allVoices = window.speechSynthesis.getVoices();
+    if (!allVoices || allVoices.length === 0) return null;
+
+    // Prioritized list of realistic, sweet, human-like female voices (Edge/Windows, Chrome, Mac)
+    const priorityFemalePatterns = [
+      "Microsoft Jenny Online (Natural)",
+      "Microsoft Aria Online (Natural)",
+      "Microsoft Neerja Online (Natural)",
+      "Microsoft Swara Online (Natural)",
+      "Microsoft Ava Online (Natural)",
+      "Microsoft Emma Online (Natural)",
+      "Microsoft Jenny",
+      "Microsoft Aria",
+      "Microsoft Neerja",
+      "Google UK English Female",
+      "Google US English",
+      "Samantha",
+      "Karen",
+      "Victoria",
+      "Microsoft Zira",
+      "Microsoft Heera",
+      "Microsoft Kalpana",
+      "Microsoft Susan",
+      "Microsoft Hazel",
+      "Google हिन्दी"
+    ];
+
+    for (const pattern of priorityFemalePatterns) {
+      const match = allVoices.find((v) => v.name.toLowerCase().includes(pattern.toLowerCase()));
+      if (match) return match;
+    }
+
+    // Secondary search: Any voice with female identifiers
+    const femaleMatch = allVoices.find((v) => {
+      const vName = v.name.toLowerCase();
+      return (
+        (vName.includes("female") ||
+          vName.includes("girl") ||
+          vName.includes("woman") ||
+          vName.includes("natural") ||
+          vName.includes("zira") ||
+          vName.includes("samantha") ||
+          vName.includes("aria") ||
+          vName.includes("jenny") ||
+          vName.includes("neerja") ||
+          vName.includes("swara")) &&
+        (v.lang.startsWith("en") || v.lang.startsWith("hi"))
+      );
+    });
+    if (femaleMatch) return femaleMatch;
+
+    // Fallback: any English or Hindi voice
+    const fallback = allVoices.find((v) => v.lang.startsWith("en") || v.lang.startsWith("hi"));
+    return fallback || allVoices[0];
+  };
+
+  // Text-To-Speech: Speaks with a natural, realistic female (girl) voice
   const speakResponse = (text) => {
     if (!text || !window.speechSynthesis) return;
 
     window.speechSynthesis.cancel();
 
-    // Clean formatting characters for speech
+    // Clean formatting characters and code blocks for smooth natural speech
     const cleanText = text
-      .replace(/[#*_`~>-]/g, " ")
+      .replace(/```[a-zA-Z0-9_-]*\n([\s\S]*?)```/g, " Here is the code snippet. ")
+      .replace(/[`#*_~>-]/g, " ")
       .replace(/\s+/g, " ")
       .trim();
 
-    // If answer is very long, speak first 2 key sentences or up to 250 characters for clear voice feedback
-    let spokenPortion = cleanText;
-    const sentences = cleanText.match(/[^.!?]+[.!?]+/g);
-    if (sentences && sentences.length > 2) {
-      spokenPortion = sentences.slice(0, 2).join(" ");
-    } else if (cleanText.length > 280) {
-      spokenPortion = cleanText.substring(0, 250) + "...";
-    }
+    if (!cleanText) return;
 
-    const utterance = new SpeechSynthesisUtterance(spokenPortion);
-    utterance.rate = 1.0;
-    utterance.pitch = 1.05;
+    // Split into sentences so browser speech synthesis never times out on long paragraphs
+    const sentences = cleanText.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [cleanText];
+    const validSentences = sentences.map((s) => s.trim()).filter((s) => s.length > 0);
 
-    const voices = window.speechSynthesis.getVoices();
-    const naturalVoice = voices.find(
-      (v) =>
-        (v.name.includes("Google") ||
-          v.name.includes("Natural") ||
-          v.name.includes("Samantha") ||
-          v.name.includes("Zira")) &&
-        (v.lang.startsWith("en") || v.lang.startsWith("hi"))
-    );
-    if (naturalVoice) {
-      utterance.voice = naturalVoice;
-    }
+    if (validSentences.length === 0) return;
 
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
+    const femaleVoice = getBestFemaleVoice();
+    let currentSentenceIdx = 0;
+    setIsSpeaking(true);
 
-    window.speechSynthesis.speak(utterance);
+    const speakNextSentence = () => {
+      if (currentSentenceIdx >= validSentences.length) {
+        setIsSpeaking(false);
+        return;
+      }
+
+      const sentenceText = validSentences[currentSentenceIdx++];
+      const utterance = new SpeechSynthesisUtterance(sentenceText);
+      
+      // Sweet, clear, natural female pitch & pleasant speech rate
+      utterance.pitch = 1.12;
+      utterance.rate = 1.0;
+      if (femaleVoice) {
+        utterance.voice = femaleVoice;
+      }
+
+      utterance.onend = () => {
+        speakNextSentence();
+      };
+
+      utterance.onerror = (e) => {
+        console.warn("Speech chunk error:", e);
+        speakNextSentence();
+      };
+
+      window.speechSynthesis.speak(utterance);
+    };
+
+    speakNextSentence();
   };
 
   const stopSpeaking = () => {
@@ -235,7 +312,6 @@ function Home() {
         targetUrl = "https://www.google.com/search?q=calculator";
         break;
       default:
-        // Do not popup tabs for informational / explanation questions
         targetUrl = null;
     }
 
@@ -313,11 +389,18 @@ function Home() {
     handleExecuteQuery();
   };
 
-  // Copy answer text
+  // Copy full response text
   const handleCopy = (text, idx) => {
     navigator.clipboard.writeText(text);
     setCopiedIndex(idx);
     setTimeout(() => setCopiedIndex(null), 2000);
+  };
+
+  // Copy code block snippet
+  const handleCopyCode = (codeText, codeId) => {
+    navigator.clipboard.writeText(codeText);
+    setCopiedCodeId(codeId);
+    setTimeout(() => setCopiedCodeId(null), 2000);
   };
 
   // Clear chat history
@@ -349,7 +432,7 @@ function Home() {
     }
   };
 
-  // Helper for formatting inline markdown (bold & code)
+  // Helper for formatting inline markdown (bold & inline code)
   const formatInlineText = (str) => {
     if (!str) return "";
     const parts = str.split(/(\*\*.*?\*\*|`.*?`)/g);
@@ -372,333 +455,471 @@ function Home() {
     });
   };
 
-  // Rich Multi-line / Structured Explanation Renderer with larger clear typography
-  const renderFormattedResponse = (text) => {
+  // Rich ChatGPT-style Markdown & Code Block Renderer
+  const renderFormattedResponse = (text, itemIndex) => {
     if (!text) return null;
-    const lines = text.split("\n");
 
-    return (
-      <div className="space-y-2.5 text-sm sm:text-base text-slate-100 font-normal leading-relaxed">
-        {lines.map((line, lIdx) => {
-          const trimmed = line.trim();
-          if (!trimmed) {
-            return <div key={lIdx} className="h-1.5" />;
-          }
+    // Split text by fenced code blocks: ```language ... ```
+    const codeBlockRegex = /```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g;
+    const elements = [];
+    let lastIndex = 0;
+    let match;
+    let blockCount = 0;
 
-          // Heading ### or ##
-          if (trimmed.startsWith("### ")) {
-            return (
-              <h4 key={lIdx} className="text-sm sm:text-base font-bold text-cyan-300 pt-1.5">
-                {trimmed.replace(/^###\s+/, "")}
-              </h4>
-            );
-          }
-          if (trimmed.startsWith("## ") || trimmed.startsWith("# ")) {
-            return (
-              <h3 key={lIdx} className="text-base sm:text-lg font-bold text-cyan-200 pt-2 pb-1 border-b border-slate-800">
-                {trimmed.replace(/^#+\s+/, "")}
-              </h3>
-            );
-          }
+    while ((match = codeBlockRegex.exec(text)) !== null) {
+      const matchIndex = match.index;
+      // Text before the code block
+      if (matchIndex > lastIndex) {
+        const textChunk = text.substring(lastIndex, matchIndex);
+        elements.push(
+          <div key={`text-${lastIndex}`} className="space-y-2 text-sm sm:text-base text-slate-200 leading-relaxed">
+            {renderTextLines(textChunk)}
+          </div>
+        );
+      }
 
-          // Bullet points
-          if (trimmed.startsWith("* ") || trimmed.startsWith("- ") || trimmed.startsWith("• ")) {
-            const bulletContent = trimmed.replace(/^[\*\-•]\s+/, "");
-            return (
-              <div key={lIdx} className="flex items-start gap-2.5 pl-2 sm:pl-3 py-0.5">
-                <span className="text-cyan-400 text-base leading-tight flex-shrink-0">•</span>
-                <div className="text-slate-200 flex-1">{formatInlineText(bulletContent)}</div>
-              </div>
-            );
-          }
+      // Code block itself (ChatGPT-style code card)
+      const lang = match[1] || "code";
+      const codeContent = match[2];
+      const codeId = `${itemIndex}-${blockCount++}`;
 
-          // Numbered list items
-          const numMatch = trimmed.match(/^(\d+\.)\s+(.+)$/);
-          if (numMatch) {
-            return (
-              <div key={lIdx} className="flex items-start gap-2.5 pl-2 sm:pl-3 py-0.5">
-                <span className="text-cyan-400 font-bold text-sm sm:text-base flex-shrink-0">{numMatch[1]}</span>
-                <div className="text-slate-200 flex-1">{formatInlineText(numMatch[2])}</div>
-              </div>
-            );
-          }
+      elements.push(
+        <div key={`code-${matchIndex}`} className="my-3 rounded-xl overflow-hidden border border-slate-800 bg-[#0d1117] shadow-xl">
+          {/* Code Header with language and Copy Button */}
+          <div className="flex items-center justify-between px-4 py-2 bg-[#161b22] border-b border-slate-800/80 text-xs font-medium text-slate-400">
+            <div className="flex items-center gap-1.5 font-mono">
+              <HiCodeBracket className="text-cyan-400 text-sm" />
+              <span>{lang || "code"}</span>
+            </div>
+            <button
+              onClick={() => handleCopyCode(codeContent, codeId)}
+              className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
+              title="Copy code"
+            >
+              {copiedCodeId === codeId ? (
+                <>
+                  <HiCheck className="text-emerald-400 text-sm" />
+                  <span className="text-emerald-400">Copied!</span>
+                </>
+              ) : (
+                <>
+                  <HiClipboardDocument className="text-sm" />
+                  <span>Copy code</span>
+                </>
+              )}
+            </button>
+          </div>
 
-          // Standard paragraph
-          return (
-            <p key={lIdx} className="text-slate-200">
-              {formatInlineText(trimmed)}
-            </p>
-          );
-        })}
-      </div>
-    );
+          {/* Code Content */}
+          <pre className="p-4 text-xs sm:text-sm font-mono text-cyan-200 overflow-x-auto leading-relaxed bg-[#0b0e14]">
+            <code>{codeContent}</code>
+          </pre>
+        </div>
+      );
+
+      lastIndex = matchIndex + match[0].length;
+    }
+
+    // Remaining text after last code block
+    if (lastIndex < text.length) {
+      const remainingText = text.substring(lastIndex);
+      elements.push(
+        <div key={`text-${lastIndex}`} className="space-y-2 text-sm sm:text-base text-slate-200 leading-relaxed">
+          {renderTextLines(remainingText)}
+        </div>
+      );
+    }
+
+    return <div className="space-y-2">{elements}</div>;
+  };
+
+  // Helper to render lines of text (headings, bullet points, numbered lists)
+  const renderTextLines = (chunk) => {
+    const lines = chunk.split("\n");
+    return lines.map((line, lIdx) => {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        return <div key={lIdx} className="h-1" />;
+      }
+
+      // Heading ### or ##
+      if (trimmed.startsWith("### ")) {
+        return (
+          <h4 key={lIdx} className="text-sm sm:text-base font-bold text-cyan-300 pt-1.5">
+            {trimmed.replace(/^###\s+/, "")}
+          </h4>
+        );
+      }
+      if (trimmed.startsWith("## ") || trimmed.startsWith("# ")) {
+        return (
+          <h3 key={lIdx} className="text-base sm:text-lg font-bold text-cyan-200 pt-2 pb-1 border-b border-slate-800/80">
+            {trimmed.replace(/^#+\s+/, "")}
+          </h3>
+        );
+      }
+
+      // Bullet points
+      if (trimmed.startsWith("* ") || trimmed.startsWith("- ") || trimmed.startsWith("• ")) {
+        const bulletContent = trimmed.replace(/^[\*\-•]\s+/, "");
+        return (
+          <div key={lIdx} className="flex items-start gap-2.5 pl-2 sm:pl-3 py-0.5">
+            <span className="text-cyan-400 text-base leading-tight flex-shrink-0">•</span>
+            <div className="text-slate-200 flex-1">{formatInlineText(bulletContent)}</div>
+          </div>
+        );
+      }
+
+      // Numbered list items
+      const numMatch = trimmed.match(/^(\d+\.)\s+(.+)$/);
+      if (numMatch) {
+        return (
+          <div key={lIdx} className="flex items-start gap-2.5 pl-2 sm:pl-3 py-0.5">
+            <span className="text-cyan-400 font-bold text-sm sm:text-base flex-shrink-0">{numMatch[1]}</span>
+            <div className="text-slate-200 flex-1">{formatInlineText(numMatch[2])}</div>
+          </div>
+        );
+      }
+
+      // Standard paragraph
+      return (
+        <p key={lIdx} className="text-slate-200">
+          {formatInlineText(trimmed)}
+        </p>
+      );
+    });
   };
 
   const suggestionChips = [
-    "What is the date today?",
     "Explain Java with key features",
     "What is Docker and Kubernetes?",
     "Play trending songs on YouTube",
+    "What is the date today?",
     "Who created you?",
   ];
 
   return (
-    <div className="w-full h-full min-h-full max-h-screen bg-[#030324] text-white flex flex-col justify-between relative overflow-hidden font-sans select-none">
+    <div className="w-full h-screen h-[100dvh] bg-[#090b10] text-slate-100 flex overflow-hidden font-sans relative selection:bg-cyan-500/30 selection:text-cyan-100">
+      
       {/* Background Ambient Glow */}
-      <div className="absolute top-[-15%] left-[25%] w-[600px] h-[600px] bg-blue-600/15 rounded-full blur-[150px] pointer-events-none" />
-      <div className="absolute bottom-[-15%] right-[25%] w-[600px] h-[600px] bg-purple-600/15 rounded-full blur-[150px] pointer-events-none" />
+      <div className="absolute top-[-15%] right-[20%] w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-[160px] pointer-events-none" />
+      <div className="absolute bottom-[-15%] left-[20%] w-[600px] h-[600px] bg-purple-600/10 rounded-full blur-[160px] pointer-events-none" />
 
-      {/* Top Header Navbar - Permanently at top, Full Width, Logout on Far Right */}
-      <header className="w-full flex-shrink-0 flex items-center justify-between py-3.5 px-4 sm:px-8 lg:px-12 bg-slate-900/95 backdrop-blur-xl border-b border-slate-800 shadow-xl z-50">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-300">
-            <HiCpuChip className="text-xl sm:text-2xl" />
-          </div>
-          <div>
-            <h2 className="text-base sm:text-lg font-bold text-white tracking-wide">{assistantName}</h2>
-            <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              Online
-            </span>
-          </div>
-        </div>
+      {/* Mobile Backdrop Overlay (Closes sidebar when tapped outside) */}
+      {sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 bg-black/70 backdrop-blur-xs z-30 sm:hidden transition-opacity duration-300"
+          aria-hidden="true"
+        />
+      )}
 
-        {/* Right Side: Clear Chat & Logout Button */}
-        <div className="flex items-center gap-3">
-          {chatHistory.length > 0 && (
+      {/* 1. LEFT SIDEBAR (ChatGPT Style: Responsive drawer on mobile, persistent on desktop) */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 sm:static sm:z-auto transition-all duration-300 ease-in-out ${
+          sidebarOpen ? "w-[85vw] max-w-[320px] sm:w-80 lg:w-84 translate-x-0" : "-translate-x-full sm:translate-x-0 sm:w-0 sm:hidden"
+        } bg-[#06080c] border-r border-slate-800/80 flex flex-col justify-between h-full shadow-2xl flex-shrink-0`}
+      >
+        {/* Sidebar Header: Logo, New Chat & Customize */}
+        <div className="p-3.5 sm:p-4 border-b border-slate-800/70 flex flex-col gap-2.5 sm:gap-3">
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/20">
+                <HiCpuChip className="text-xl" />
+              </div>
+              <span className="font-bold text-base sm:text-lg tracking-wide text-white">{assistantName} AI</span>
+            </div>
+            
+            {/* Mobile Sidebar Close */}
             <button
-              onClick={handleClearHistory}
-              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white text-xs sm:text-sm font-medium transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
-              title="Clear chat history"
+              onClick={() => setSidebarOpen(false)}
+              className="sm:hidden p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 active:scale-95 transition-all"
+              aria-label="Close sidebar"
             >
-              <HiTrash className="text-base text-slate-400" />
-              <span className="hidden sm:inline">Clear</span>
+              <HiXMark className="text-xl" />
             </button>
-          )}
+          </div>
 
+          {/* New Chat Button (Prominent & Spacious) */}
           <button
-            onClick={handleLogOut}
-            className="px-4 sm:px-5 py-2 rounded-xl bg-red-600 hover:bg-red-500 border border-red-400/40 text-white text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-2 shadow-md hover:shadow-red-500/20"
-            title="Logout"
+            onClick={() => {
+              setSearchQuery("");
+              setSidebarOpen(false);
+              if (inputRef.current) inputRef.current.focus();
+            }}
+            className="w-full flex items-center justify-between px-4 py-3 rounded-2xl bg-slate-800/90 hover:bg-slate-700/90 border border-slate-700 text-white text-sm font-bold transition-all cursor-pointer shadow-md hover:shadow-cyan-500/10 active:scale-98 group"
           >
-            <HiArrowRightOnRectangle className="text-base sm:text-lg" />
-            <span>Logout</span>
+            <div className="flex items-center gap-2.5">
+              <HiPlus className="text-base sm:text-lg text-cyan-400 group-hover:rotate-90 transition-transform duration-200" />
+              <span>New chat</span>
+            </div>
+            <span className="text-xs text-slate-400 font-mono bg-slate-900/80 px-2 py-0.5 rounded-lg border border-slate-700/60">⌘K</span>
+          </button>
+
+          {/* Customize Assistant Link */}
+          <button
+            onClick={() => {
+              setSidebarOpen(false);
+              navigate("/customize");
+            }}
+            className="w-full flex items-center gap-2.5 px-3.5 py-2 rounded-xl hover:bg-slate-800/60 text-slate-300 hover:text-cyan-300 text-xs sm:text-sm font-medium transition-colors cursor-pointer active:scale-98"
+          >
+            <HiAdjustmentsHorizontal className="text-base text-slate-400" />
+            <span>Customize Assistant</span>
           </button>
         </div>
-      </header>
 
-      {/* Main Content Area: Expanded Width for High Visibility & Readability */}
-      <main className="w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 flex-1 flex flex-col justify-start py-2.5 sm:py-3.5 z-10 min-h-0 overflow-hidden">
-        
-        {/* 1. Assistant Avatar Preview */}
-        <div className="flex-shrink-0 flex flex-col items-center py-1">
-          <div className="relative group flex flex-col items-center">
-            <div
-              className={`absolute -inset-3 rounded-full blur-xl transition-all duration-500 pointer-events-none ${
-                isSpeaking
-                  ? "bg-gradient-to-r from-cyan-400 to-blue-600 opacity-90 scale-110 animate-pulse"
-                  : isListening
-                  ? "bg-gradient-to-r from-emerald-400 to-green-600 opacity-90 scale-110 animate-pulse"
-                  : isProcessing
-                  ? "bg-gradient-to-r from-purple-400 to-pink-500 opacity-80 scale-105 animate-pulse"
-                  : "bg-blue-600/30 opacity-40 group-hover:opacity-70"
-              }`}
-            />
+        {/* Sidebar Middle: Recents / Chat History List */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-2.5 sm:px-3 py-3 space-y-1.5 scrollbar-thin scrollbar-thumb-slate-800">
+          <div className="flex items-center justify-between px-2.5 mb-2">
+            <span className="text-xs font-bold tracking-wider text-slate-400 uppercase">Recents</span>
+            {chatHistory.length > 0 && (
+              <button
+                onClick={handleClearHistory}
+                className="text-xs text-slate-400 hover:text-rose-400 font-medium transition-colors flex items-center gap-1.5 cursor-pointer active:scale-95"
+                title="Clear all history"
+              >
+                <HiTrash className="text-sm" />
+                <span>Clear</span>
+              </button>
+            )}
+          </div>
 
-            <div
-              className={`relative rounded-full p-1.5 bg-gradient-to-tr from-cyan-500 via-blue-500 to-purple-600 shadow-[0_0_25px_rgba(59,130,246,0.4)] transition-all ${
-                chatHistory.length > 0 ? "w-16 h-16 sm:w-20 sm:h-20" : "w-24 h-24 sm:w-32 sm:h-32"
-              }`}
-            >
-              <div className="w-full h-full rounded-full overflow-hidden bg-slate-950 flex items-center justify-center border-2 border-slate-900 relative">
-                <img
-                  src={assistantImage || defaultAvatar}
-                  alt={assistantName}
-                  onError={(e) => {
-                    e.currentTarget.onerror = null;
-                    e.currentTarget.src = defaultAvatar;
+          {chatHistory.length === 0 ? (
+            <div className="p-6 text-center text-xs sm:text-sm text-slate-400 flex flex-col items-center justify-center gap-2">
+              <HiChatBubbleLeftRight className="text-2xl text-slate-500" />
+              <span>No recent chats yet</span>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              {[...chatHistory].reverse().map((item, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => {
+                    setSidebarOpen(false);
+                    if (inputRef.current) inputRef.current.focus();
                   }}
-                  className="w-full h-full object-cover rounded-full"
-                />
+                  className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-slate-200 hover:text-white hover:bg-slate-800/90 border border-transparent hover:border-slate-700/80 transition-all flex items-center gap-2.5 group cursor-pointer truncate shadow-sm active:scale-98"
+                  title={item.prompt}
+                >
+                  <HiChatBubbleLeftRight className="text-sm text-slate-400 group-hover:text-cyan-400 flex-shrink-0" />
+                  <span className="truncate flex-1">{item.prompt || "Conversation"}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
-                {/* Speaking Visual Wave */}
-                {isSpeaking && (
-                  <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center gap-1.5">
-                    <span className="w-1.5 h-4 sm:w-2 sm:h-5 bg-cyan-400 rounded-full animate-bounce [animation-delay:0ms]" />
-                    <span className="w-1.5 h-6 sm:w-2 sm:h-8 bg-blue-400 rounded-full animate-bounce [animation-delay:150ms]" />
-                    <span className="w-1.5 h-4 sm:w-2 sm:h-5 bg-cyan-300 rounded-full animate-bounce [animation-delay:300ms]" />
-                  </div>
-                )}
-
-                {/* Listening Wave */}
-                {isListening && !isSpeaking && (
-                  <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center gap-1.5">
-                    <span className="w-2 h-5 bg-emerald-400 rounded-full animate-ping" />
-                    <span className="w-2 h-7 bg-teal-400 rounded-full animate-bounce" />
-                  </div>
-                )}
+        {/* Sidebar Bottom: User Profile Card & Logout Button */}
+        <div className="p-3 sm:p-3.5 border-t border-slate-800/80 bg-[#040609]/95">
+          <div className="flex items-center justify-between gap-2.5 sm:gap-3 p-2.5 rounded-2xl bg-slate-900/90 border border-slate-800/90 shadow-lg">
+            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-cyan-600 via-blue-600 to-indigo-600 flex items-center justify-center text-white text-xs sm:text-sm font-bold flex-shrink-0 shadow-md">
+                {userName.charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs sm:text-sm font-bold text-white truncate">{userName}</p>
+                <p className="text-[11px] sm:text-xs text-emerald-400 font-medium flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Free Plan
+                </p>
               </div>
             </div>
 
-            {/* Status Badge */}
-            <div className="mt-1.5 flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/90 border border-slate-700/80 shadow-md">
-              <span
-                className={`w-2.5 h-2.5 rounded-full ${
-                  isSpeaking
-                    ? "bg-cyan-400 animate-ping"
-                    : isListening
-                    ? "bg-emerald-400 animate-ping"
-                    : isProcessing
-                    ? "bg-amber-400 animate-spin"
-                    : "bg-emerald-400"
-                }`}
-              />
-              <span className="text-xs sm:text-sm font-semibold text-slate-200">
-                {isSpeaking
-                  ? "Speaking..."
-                  : isListening
-                  ? "Listening..."
-                  : isProcessing
-                  ? "Thinking & Explaining..."
-                  : "Ready to assist you"}
+            {/* Logout Button in Sidebar */}
+            <button
+              onClick={handleLogOut}
+              className="p-2 sm:p-2.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/20 text-red-400 hover:text-red-300 transition-all cursor-pointer flex-shrink-0 shadow-sm active:scale-95"
+              title="Logout"
+            >
+              <HiArrowRightOnRectangle className="text-base sm:text-lg" />
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* 2. MAIN CONTENT AREA (Right Side: Center Voice Avatar + Chat Feed + Bottom Floating Input) */}
+      <div className="flex-1 flex flex-col h-full min-w-0 relative overflow-hidden bg-[#0a0d14]">
+        
+        {/* Top Floating Navbar (Mobile Toggle + Assistant Status) */}
+        <header className="w-full flex-shrink-0 flex items-center justify-between py-2.5 px-4 sm:px-6 bg-[#0a0d14]/90 backdrop-blur-md border-b border-slate-800/60 z-30">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
+              title="Toggle sidebar"
+            >
+              <HiBars3 className="text-lg" />
+            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-sm sm:text-base font-bold text-white tracking-wide">{assistantName}</span>
+              <span className="px-2 py-0.5 rounded-full bg-blue-500/15 border border-blue-500/30 text-[10px] sm:text-xs font-medium text-cyan-300">
+                Voice & AI
               </span>
             </div>
           </div>
-        </div>
 
-        {/* 2. Top Message / Search / Ask Me Section - Above the Chat */}
-        <div className="w-full flex-shrink-0 pt-2.5 pb-2.5">
-          <form onSubmit={handleFormSubmit} className="relative group">
-            <div className="relative flex items-center bg-slate-900/95 backdrop-blur-xl border-2 border-slate-700 group-focus-within:border-cyan-400 rounded-2xl px-4 sm:px-5 py-2.5 sm:py-3.5 shadow-2xl transition-all">
-              {/* Search Icon */}
-              <div className="mr-3 text-cyan-400 text-lg sm:text-xl flex-shrink-0">
-                <HiMagnifyingGlass />
-              </div>
-
-              {/* Text Input Field */}
-              <input
-                ref={inputRef}
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={
-                  isListening
-                    ? "Listening... Ask any question or search topic..."
-                    : "Ask anything, search topics, explain concepts, open apps, or click mic..."
-                }
-                disabled={isProcessing}
-                className="w-full bg-transparent text-white placeholder-slate-400 text-sm sm:text-base font-medium focus:outline-none pr-3 disabled:opacity-50"
-              />
-
-              {/* Clear Text Button */}
-              {searchQuery && !isProcessing && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery("")}
-                  className="p-1.5 mr-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
-                >
-                  <HiXMark className="text-lg" />
-                </button>
-              )}
-
-              {/* Voice Mic Button */}
-              <button
-                type="button"
-                onClick={handleToggleListening}
-                disabled={isProcessing}
-                title={isListening ? "Stop listening" : "Speak to assistant"}
-                className={`p-2.5 sm:px-4 sm:py-2 rounded-xl border flex items-center gap-2 transition-all cursor-pointer mr-2 flex-shrink-0 ${
-                  isListening
-                    ? "bg-emerald-500/25 border-emerald-400 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.4)] animate-pulse"
-                    : "bg-slate-800 hover:bg-slate-700 border-slate-700 text-blue-400 hover:text-cyan-300"
-                }`}
-              >
-                <HiMicrophone className={`text-lg sm:text-xl ${isListening ? "animate-bounce" : ""}`} />
-                {isListening && (
-                  <span className="hidden sm:inline text-xs font-bold text-emerald-300">Listening</span>
-                )}
-              </button>
-
-              {/* Submit / Ask Button */}
-              <button
-                type="submit"
-                disabled={isProcessing || !searchQuery.trim()}
-                className="p-2.5 sm:px-5 sm:py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold text-xs sm:text-base border border-blue-400/40 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center justify-center gap-1.5 flex-shrink-0 shadow-md"
-              >
-                {isProcessing ? (
-                  <HiArrowPath className="text-lg animate-spin" />
-                ) : (
-                  <>
-                    <HiPaperAirplane className="text-base" />
-                    <span className="hidden sm:inline">Ask</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-        </div>
-
-        {/* Error Alert */}
-        {errorMessage && (
-          <div className="w-full flex-shrink-0 my-1.5 px-4 py-2 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs sm:text-sm flex items-center justify-between">
-            <span>{errorMessage}</span>
-            <button onClick={() => setErrorMessage("")} className="text-rose-400 hover:text-white p-0.5">
-              <HiXMark className="text-lg" />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleToggleListening}
+              className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                isListening
+                  ? "bg-emerald-500/20 border-emerald-400 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.4)] animate-pulse"
+                  : "bg-slate-800/80 hover:bg-slate-700 border-slate-700 text-slate-300 hover:text-cyan-300"
+              }`}
+            >
+              <HiMicrophone className={`text-sm ${isListening ? "animate-bounce" : ""}`} />
+              <span>{isListening ? "Listening..." : "Voice Mode"}</span>
             </button>
           </div>
-        )}
+        </header>
 
-        {/* 3. Conversation Feed / Chat History - Placed Below Search Box */}
-        <div 
+        {/* Scrollable Main Area (Center Voice Avatar & Full ChatGPT Feed) */}
+        <main
           ref={chatContainerRef}
-          className="w-full flex-1 min-h-0 overflow-y-auto space-y-4 px-3 sm:px-5 py-3 my-1 rounded-2xl bg-slate-950/40 backdrop-blur-md border border-slate-800/60 shadow-inner scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent"
+          className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-6 lg:px-10 py-4 space-y-6 scrollbar-thin scrollbar-thumb-slate-800"
         >
-          {chatHistory.length === 0 ? (
-            <div className="h-full min-h-[160px] flex flex-col items-center justify-center text-center p-4">
-              <div className="p-3 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-cyan-400 mb-2.5">
-                <HiSparkles className="text-2xl sm:text-3xl animate-pulse" />
-              </div>
-              <h3 className="text-base sm:text-lg font-bold text-white mb-1.5">
-                How can {assistantName} help you today?
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-400 max-w-lg mb-4">
-                Ask any question, search topics, explain concepts, or open apps with full detailed explanations right here.
-              </p>
+          {/* CENTER INTERACTIVE VOICE AVATAR (Matching Screenshot 2!) */}
+          <div className="w-full flex flex-col items-center justify-center py-2 flex-shrink-0">
+            <div
+              onClick={handleToggleListening}
+              className="relative group cursor-pointer flex flex-col items-center"
+              title="Click avatar to talk or give voice command"
+            >
+              {/* Outer Ambient Glow Wave */}
+              <div
+                className={`absolute -inset-3 rounded-full blur-xl transition-all duration-500 pointer-events-none ${
+                  isSpeaking
+                    ? "bg-gradient-to-r from-cyan-400 to-blue-600 opacity-90 scale-110 animate-pulse"
+                    : isListening
+                    ? "bg-gradient-to-r from-emerald-400 to-teal-500 opacity-90 scale-110 animate-pulse"
+                    : isProcessing
+                    ? "bg-gradient-to-r from-purple-400 to-pink-500 opacity-80 scale-105 animate-pulse"
+                    : "bg-blue-600/30 opacity-40 group-hover:opacity-75 group-hover:scale-105"
+                }`}
+              />
 
-              {/* Suggestion Chips */}
-              <div className="flex flex-wrap gap-2 justify-center max-w-xl">
-                {suggestionChips.map((chip, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleExecuteQuery(chip)}
-                    disabled={isProcessing}
-                    className="px-3.5 py-1.5 rounded-full bg-slate-900 hover:bg-blue-600/20 border border-slate-700/80 hover:border-blue-500/50 text-xs sm:text-sm text-slate-300 hover:text-cyan-200 transition-all cursor-pointer shadow-sm disabled:opacity-50"
-                  >
-                    {chip}
-                  </button>
-                ))}
+              {/* Glowing Avatar Frame */}
+              <div
+                className={`relative rounded-full p-1.5 bg-gradient-to-tr transition-all duration-300 ${
+                  isListening
+                    ? "from-emerald-400 via-teal-400 to-cyan-400 shadow-[0_0_30px_rgba(16,185,129,0.5)] scale-105"
+                    : isSpeaking
+                    ? "from-cyan-400 via-blue-500 to-purple-600 shadow-[0_0_30px_rgba(59,130,246,0.5)]"
+                    : "from-cyan-500 via-blue-500 to-purple-600 shadow-[0_0_20px_rgba(59,130,246,0.35)]"
+                } ${chatHistory.length > 0 ? "w-20 h-20 sm:w-24 sm:h-24" : "w-28 h-28 sm:w-36 sm:h-36"}`}
+              >
+                <div className="w-full h-full rounded-full overflow-hidden bg-slate-950 flex items-center justify-center border-2 border-slate-900 relative">
+                  <img
+                    src={assistantImage || defaultAvatar}
+                    alt={assistantName}
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = defaultAvatar;
+                    }}
+                    className={`w-full h-full object-cover rounded-full transition-transform duration-300 ${
+                      isListening ? "scale-105 blur-[0.5px]" : "group-hover:scale-105"
+                    }`}
+                  />
+
+                  {/* Listening Visual Waves Overlay (Two animated bars matching Screenshot 2) */}
+                  {isListening && (
+                    <div className="absolute inset-0 bg-black/45 backdrop-blur-[1px] flex items-center justify-center gap-2">
+                      <span className="w-2.5 h-7 sm:w-3 sm:h-9 bg-emerald-400 rounded-full animate-bounce [animation-delay:0ms] shadow-md" />
+                      <span className="w-2.5 h-10 sm:w-3 sm:h-12 bg-teal-300 rounded-full animate-bounce [animation-delay:150ms] shadow-md" />
+                    </div>
+                  )}
+
+                  {/* Speaking Sound Waves */}
+                  {isSpeaking && !isListening && (
+                    <div className="absolute inset-0 bg-black/45 backdrop-blur-[1px] flex items-center justify-center gap-1.5">
+                      <span className="w-1.5 h-4 sm:w-2 sm:h-6 bg-cyan-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                      <span className="w-1.5 h-8 sm:w-2 sm:h-10 bg-blue-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                      <span className="w-1.5 h-5 sm:w-2 sm:h-7 bg-purple-400 rounded-full animate-bounce [animation-delay:300ms]" />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Status Badge below Avatar (Screenshot 2 style) */}
+              <div
+                className={`mt-2.5 flex items-center gap-2 px-3.5 py-1 rounded-full border shadow-lg transition-all ${
+                  isListening
+                    ? "bg-emerald-950/80 border-emerald-500/60 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+                    : isSpeaking
+                    ? "bg-blue-950/80 border-cyan-500/60 text-cyan-300"
+                    : isProcessing
+                    ? "bg-purple-950/80 border-purple-500/60 text-purple-300"
+                    : "bg-slate-900/90 border-slate-700 text-slate-300 hover:border-slate-500"
+                }`}
+              >
+                <span
+                  className={`w-2.5 h-2.5 rounded-full ${
+                    isListening
+                      ? "bg-emerald-400 animate-ping"
+                      : isSpeaking
+                      ? "bg-cyan-400 animate-ping"
+                      : isProcessing
+                      ? "bg-purple-400 animate-spin"
+                      : "bg-emerald-400"
+                  }`}
+                />
+                <span className="text-xs sm:text-sm font-semibold">
+                  {isListening
+                    ? "Listening..."
+                    : isSpeaking
+                    ? "Speaking..."
+                    : isProcessing
+                    ? "Thinking..."
+                    : "Ready to assist you • Click to talk"}
+                </span>
               </div>
             </div>
-          ) : (
-            <>
-              {chatHistory.map((item, index) => (
-                <div key={index} className="space-y-2.5 animate-fadeIn">
-                  {/* User Question Bubble (Right Aligned) */}
+          </div>
+
+          {/* CHAT MESSAGES FEED (ChatGPT Style) */}
+          <div className="w-full max-w-4xl mx-auto space-y-5">
+            {chatHistory.length === 0 ? (
+              <div className="py-6 text-center">
+                <h3 className="text-lg sm:text-2xl font-bold text-white mb-2">
+                  What can I help you with today?
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-400 max-w-md mx-auto mb-5">
+                  Ask coding questions, search topics, play music, or speak hands-free commands anytime.
+                </p>
+
+                {/* Suggestion Chips */}
+                <div className="flex flex-wrap gap-2 justify-center max-w-xl mx-auto">
+                  {suggestionChips.map((chip, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleExecuteQuery(chip)}
+                      disabled={isProcessing}
+                      className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-xs sm:text-sm text-slate-300 hover:text-white transition-all cursor-pointer shadow-sm disabled:opacity-50"
+                    >
+                      {chip}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              chatHistory.map((item, index) => (
+                <div key={index} className="space-y-3 animate-fadeIn">
+                  {/* User Question (Right Aligned Bubble) */}
                   {item.prompt && (
-                    <div className="flex justify-end items-end gap-2 sm:gap-2.5">
+                    <div className="flex justify-end items-end gap-2.5">
                       <div className="max-w-[85%] sm:max-w-[75%] px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl rounded-tr-sm bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm sm:text-base font-medium shadow-md">
                         <p className="leading-relaxed">{item.prompt}</p>
                       </div>
-                      <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-blue-700/40 border border-blue-400/40 flex items-center justify-center text-blue-300 text-xs sm:text-sm flex-shrink-0 mb-0.5">
+                      <div className="w-8 h-8 rounded-full bg-blue-700/50 border border-blue-400/40 flex items-center justify-center text-blue-200 text-xs flex-shrink-0 mb-0.5">
                         <HiUser />
                       </div>
                     </div>
                   )}
 
-                  {/* Assistant Full Explanation Card (Left Aligned) */}
+                  {/* Assistant Response Card (Full Width ChatGPT Style) */}
                   {item.response && (
-                    <div className="flex justify-start items-start gap-2.5 sm:gap-3">
-                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden border border-cyan-500/40 flex-shrink-0 mt-0.5 shadow-sm">
+                    <div className="flex justify-start items-start gap-3">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden border border-cyan-500/40 flex-shrink-0 mt-0.5 shadow-md">
                         <img
                           src={assistantImage || defaultAvatar}
                           alt={assistantName}
@@ -706,9 +927,9 @@ function Home() {
                         />
                       </div>
 
-                      <div className="max-w-[94%] sm:max-w-[90%] p-4 sm:p-5 rounded-2xl rounded-tl-sm bg-slate-900/90 border border-slate-700/90 shadow-xl text-slate-100">
-                        {/* Header: Name + Action Badge */}
-                        <div className="flex items-center justify-between gap-2 mb-2.5 pb-2 border-b border-slate-800">
+                      <div className="flex-1 max-w-[94%] p-4 sm:p-5 rounded-2xl rounded-tl-sm bg-[#121620] border border-slate-800 shadow-xl text-slate-100">
+                        {/* Header: Name + Action Badge + Listen & Copy Actions */}
+                        <div className="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-slate-800/80">
                           <div className="flex items-center gap-2">
                             <span className="text-xs sm:text-sm font-bold text-cyan-300">{assistantName}</span>
                             {item.type && item.type !== "general" && (
@@ -718,64 +939,154 @@ function Home() {
                             )}
                           </div>
 
-                          {/* Quick Action: Re-speak & Copy */}
                           <div className="flex items-center gap-1.5">
                             <button
                               onClick={() => speakResponse(item.response)}
-                              className="p-1.5 text-slate-400 hover:text-cyan-300 transition-colors cursor-pointer"
-                              title="Listen to explanation"
+                              className="p-1.5 text-slate-400 hover:text-cyan-300 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                              title="Listen to response"
                             >
-                              <HiSpeakerWave className="text-sm sm:text-base" />
+                              <HiSpeakerWave className="text-base" />
                             </button>
                             <button
                               onClick={() => handleCopy(item.response, index)}
-                              className="p-1.5 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                              className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
                               title="Copy answer"
                             >
                               {copiedIndex === index ? (
-                                <HiCheck className="text-sm sm:text-base text-emerald-400" />
+                                <HiCheck className="text-base text-emerald-400" />
                               ) : (
-                                <HiClipboardDocument className="text-sm sm:text-base" />
+                                <HiClipboardDocument className="text-base" />
                               )}
                             </button>
                           </div>
                         </div>
 
-                        {/* Full Formatted Explanation */}
-                        {renderFormattedResponse(item.response)}
+                        {/* Full Formatted Response & Code Blocks */}
+                        {renderFormattedResponse(item.response, index)}
                       </div>
                     </div>
                   )}
                 </div>
-              ))}
+              ))
+            )}
 
-              {/* Active Thinking / Processing Indicator */}
-              {isProcessing && (
-                <div className="flex justify-start items-start gap-2.5 sm:gap-3 animate-pulse">
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden border border-purple-500/40 flex-shrink-0 mt-0.5">
-                    <img
-                      src={assistantImage || defaultAvatar}
-                      alt={assistantName}
-                      className="w-full h-full object-cover opacity-80"
-                    />
-                  </div>
-                  <div className="px-4 py-3 rounded-2xl rounded-tl-sm bg-slate-900/90 border border-slate-700/80 shadow-md flex items-center gap-2.5">
-                    <span className="w-2 h-2 rounded-full bg-cyan-400 animate-bounce [animation-delay:0ms]" />
-                    <span className="w-2 h-2 rounded-full bg-blue-400 animate-bounce [animation-delay:150ms]" />
-                    <span className="w-2 h-2 rounded-full bg-purple-400 animate-bounce [animation-delay:300ms]" />
-                    <span className="text-xs sm:text-sm text-slate-300 ml-1 font-medium">{assistantName} is preparing full explanation...</span>
-                  </div>
+            {/* Active Thinking Indicator */}
+            {isProcessing && (
+              <div className="flex justify-start items-start gap-3 animate-pulse">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden border border-purple-500/40 flex-shrink-0 mt-0.5">
+                  <img
+                    src={assistantImage || defaultAvatar}
+                    alt={assistantName}
+                    className="w-full h-full object-cover opacity-80"
+                  />
                 </div>
-              )}
-            </>
-          )}
-        </div>
-      </main>
+                <div className="px-4 py-3 rounded-2xl rounded-tl-sm bg-[#121620] border border-slate-800 shadow-md flex items-center gap-2.5">
+                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-bounce [animation-delay:0ms]" />
+                  <span className="w-2 h-2 rounded-full bg-blue-400 animate-bounce [animation-delay:150ms]" />
+                  <span className="w-2 h-2 rounded-full bg-purple-400 animate-bounce [animation-delay:300ms]" />
+                  <span className="text-xs sm:text-sm text-slate-300 ml-1 font-medium">{assistantName} is generating response...</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </main>
 
-      {/* Minimal Clean Footer */}
-      <footer className="w-full flex-shrink-0 text-center py-2 text-xs text-slate-500 border-t border-slate-900/80">
-        AI Virtual Assistant • Powered by Gemini & Voice
-      </footer>
+        {/* 3. BOTTOM FLOATING PROMPT INPUT BAR (ChatGPT Style - Responsive) */}
+        <div className="w-full flex-shrink-0 px-2.5 sm:px-6 lg:px-8 pb-2 sm:pb-3 pt-1.5 bg-gradient-to-t from-[#0a0d14] via-[#0a0d14]/95 to-transparent">
+          <div className="max-w-4xl mx-auto">
+            {/* Error Message */}
+            {errorMessage && (
+              <div className="mb-2 px-3 sm:px-4 py-2 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs sm:text-sm flex items-center justify-between shadow-md">
+                <span>{errorMessage}</span>
+                <button onClick={() => setErrorMessage("")} className="text-rose-400 hover:text-white p-0.5 active:scale-90">
+                  <HiXMark className="text-base" />
+                </button>
+              </div>
+            )}
+
+            {/* Input Form Bar */}
+            <form onSubmit={handleFormSubmit} className="relative">
+              <div className="flex items-center bg-[#161b26] border-2 border-slate-700/80 focus-within:border-cyan-400/90 rounded-2xl px-2.5 sm:px-4 py-1.5 sm:py-2.5 shadow-2xl transition-all">
+                
+                {/* Plus / Search Icon */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery("");
+                    if (inputRef.current) inputRef.current.focus();
+                  }}
+                  className="mr-1.5 sm:mr-2 p-1 text-slate-400 hover:text-white transition-colors cursor-pointer active:scale-90"
+                  title="New prompt"
+                >
+                  <HiPlus className="text-lg sm:text-xl" />
+                </button>
+
+                {/* Main Text Input Field */}
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={
+                    isListening
+                      ? "Listening... speak now"
+                      : "Ask anything, search, or speak..."
+                  }
+                  disabled={isProcessing}
+                  className="w-full min-w-0 bg-transparent text-white placeholder-slate-400 text-xs sm:text-sm md:text-base font-normal focus:outline-none pr-1.5 sm:pr-2 disabled:opacity-50"
+                />
+
+                {/* Clear Input Button */}
+                {searchQuery && !isProcessing && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="p-1 mr-1 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer active:scale-90"
+                  >
+                    <HiXMark className="text-base sm:text-lg" />
+                  </button>
+                )}
+
+                {/* Voice Mic Button (Interactive Wave) */}
+                <button
+                  type="button"
+                  onClick={handleToggleListening}
+                  disabled={isProcessing}
+                  title={isListening ? "Stop voice listening" : "Start speaking voice command"}
+                  className={`p-2 sm:px-3 sm:py-1.5 rounded-xl border flex items-center gap-1.5 transition-all cursor-pointer mr-1 sm:mr-1.5 flex-shrink-0 active:scale-95 ${
+                    isListening
+                      ? "bg-emerald-500/25 border-emerald-400 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.4)] animate-pulse"
+                      : "bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300 hover:text-cyan-300"
+                  }`}
+                >
+                  <HiMicrophone className={`text-base sm:text-lg ${isListening ? "animate-bounce text-emerald-300" : ""}`} />
+                  {isListening && (
+                    <span className="hidden sm:inline text-xs font-bold text-emerald-300">Listening</span>
+                  )}
+                </button>
+
+                {/* Send / Ask Button */}
+                <button
+                  type="submit"
+                  disabled={isProcessing || !searchQuery.trim()}
+                  className="p-2 sm:p-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white border border-blue-400/40 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center justify-center flex-shrink-0 shadow-md active:scale-95"
+                  title="Send message"
+                >
+                  {isProcessing ? (
+                    <HiArrowPath className="text-base sm:text-lg animate-spin" />
+                  ) : (
+                    <HiPaperAirplane className="text-base sm:text-lg" />
+                  )}
+                </button>
+              </div>
+            </form>
+
+            <p className="text-center text-[10px] sm:text-xs text-slate-400 mt-1.5 truncate px-2">
+              {assistantName} AI Virtual Assistant • Powered by Gemini & Voice
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
