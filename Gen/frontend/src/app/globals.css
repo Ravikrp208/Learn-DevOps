@@ -531,8 +531,67 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+@keyframes slideUpText {
+  from {
+    transform: translateY(105%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes textShimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+.shimmer-text {
+  background: linear-gradient(
+    90deg,
+    #ffffff 0%,
+    #ef233c 25%,
+    #ffffff 50%,
+    #ef233c 75%,
+    #ffffff 100%
+  );
+  background-size: 200% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: textShimmer 5s linear infinite;
+}
+
+.mask-text-wrapper {
+  overflow: hidden;
+  display: inline-block;
+  vertical-align: bottom;
+}
+
+.mask-text-child {
+  display: inline-block;
+  transform: translateY(105%);
+  opacity: 0;
+  animation: slideUpText 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 .pulse-primary {
   animation: pulseRed 2s infinite;
+}
+
+.mobile-only {
+  display: none !important;
+}
+
+@media (max-width: 600px) {
+  .mobile-only {
+    display: block !important;
+  }
 }
 
 /* Grid Layouts */

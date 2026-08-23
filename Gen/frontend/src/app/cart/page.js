@@ -96,7 +96,7 @@ export default function CartPage() {
                     <p style={styles.itemMeta}>
                       Size: <strong style={{ color: "var(--text-primary)" }}>{item.selectedSize}</strong> | Color: <strong style={{ color: "var(--text-primary)" }}>{item.selectedColor}</strong>
                     </p>
-                    <span style={styles.mobilePrice}>${item.product.price.toFixed(2)} each</span>
+                    <span className="mobile-only" style={styles.mobilePrice}>${item.product.price.toFixed(2)} each</span>
                   </div>
 
                   <div style={styles.itemActions}>
@@ -354,14 +354,10 @@ const styles = {
     color: "var(--text-muted)",
   },
   mobilePrice: {
-    display: "none",
     fontSize: "0.85rem",
     color: "var(--primary)",
     fontWeight: "600",
     marginTop: "4px",
-    "@media (max-width: 600px)": {
-      display: "block",
-    },
   },
   itemActions: {
     flex: 3,

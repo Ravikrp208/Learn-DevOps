@@ -6,6 +6,7 @@ import Image from "next/image";
 import ProductCard from "../components/ProductCard";
 import Hero3D from "../components/Hero3D";
 import ScrollReveal from "../components/ScrollReveal";
+import TextReveal from "../components/TextReveal";
 import { products } from "../data/products";
 import { ArrowRight, Flame, ShieldCheck, Truck, RefreshCw, Star } from "lucide-react";
 
@@ -69,7 +70,11 @@ export default function Home() {
               NEW COLLECTION 2026
             </span>
             <h1 style={styles.heroTitle}>
-              Unleash the <span style={styles.highlightText}>Crimson</span> Inside You.
+              <TextReveal text="Unleash the" />{" "}
+              <span className="shimmer-text" style={styles.highlightText}>
+                <TextReveal text="Crimson" delay={300} />
+              </span>{" "}
+              <TextReveal text="Inside You." delay={500} />
             </h1>
             <p style={styles.heroDescription}>
               Explore our curated shop featuring premium leather bags, high-performance running sneakers, acoustic noise-canceling headphones, and designer watches in striking red and white designs.
@@ -121,8 +126,12 @@ export default function Home() {
       <section style={styles.section}>
         <div className="container">
           <ScrollReveal direction="up" duration={700}>
-            <h2 className="section-title">Shop By Categories</h2>
-            <p className="section-subtitle">Browse through our beautifully color-curated departments</p>
+            <h2 className="section-title">
+              <TextReveal text="Shop By Categories" />
+            </h2>
+            <p className="section-subtitle">
+              <TextReveal text="Browse through our beautifully color-curated departments" delay={150} />
+            </p>
           </ScrollReveal>
           
           <div style={styles.categoriesGrid}>
@@ -158,8 +167,12 @@ export default function Home() {
       <section style={{ ...styles.section, backgroundColor: "var(--bg-card)" }}>
         <div className="container">
           <ScrollReveal direction="up" duration={700}>
-            <h2 className="section-title">Featured Highlights</h2>
-            <p className="section-subtitle">Our top recommendations hand-picked for your lifestyle</p>
+            <h2 className="section-title">
+              <TextReveal text="Featured Highlights" />
+            </h2>
+            <p className="section-subtitle">
+              <TextReveal text="Our top recommendations hand-picked for your lifestyle" delay={150} />
+            </p>
           </ScrollReveal>
           
           <div className="product-grid">
@@ -181,7 +194,9 @@ export default function Home() {
         <div className="container" style={styles.promoContainer}>
           <ScrollReveal direction="left" duration={800} style={styles.promoTextCol}>
             <span style={styles.promoBadge}>FLASH SALE</span>
-            <h2 style={styles.promoTitle}>The Crimson Release Deal</h2>
+            <h2 style={styles.promoTitle}>
+              <TextReveal text="The Crimson Release Deal" />
+            </h2>
             <p style={styles.promoDesc}>
               Get an extra <strong>25% OFF</strong> our premium sneakers and watches collection when using the code <strong>CRIMSON25</strong> at checkout.
             </p>
@@ -225,8 +240,12 @@ export default function Home() {
       <section style={styles.section}>
         <div className="container">
           <ScrollReveal direction="up" duration={700}>
-            <h2 className="section-title">What Our Customers Say</h2>
-            <p className="section-subtitle">Don't take our word for it—see reviews from worldwide buyers</p>
+            <h2 className="section-title">
+              <TextReveal text="What Our Customers Say" />
+            </h2>
+            <p className="section-subtitle">
+              <TextReveal text="Don't take our word for it—see reviews from worldwide buyers" delay={150} />
+            </p>
           </ScrollReveal>
           
           <div style={styles.testimonialsGrid}>
