@@ -4,14 +4,27 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import ProductCard from "../components/ProductCard";
+import Hero3D from "../components/Hero3D";
+import ScrollReveal from "../components/ScrollReveal";
 import { products } from "../data/products";
 import { ArrowRight, Flame, ShieldCheck, Truck, RefreshCw, Star } from "lucide-react";
 
 export default function Home() {
   const [timeLeft, setTimeLeft] = useState({ hours: 12, minutes: 45, seconds: 30 });
+  const [isMobile, setIsMobile] = useState(false);
 
   // Filter out the featured products
   const featuredProducts = products.filter((p) => p.isFeatured);
+
+  // Responsive state handler
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 992);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   // Countdown timer effect
   useEffect(() => {
@@ -46,63 +59,71 @@ export default function Home() {
             priority
             style={styles.heroImage}
           />
-          <div style={styles.heroOverlay} />
+          <div style={styles.heroOverlay(isMobile)} />
         </div>
         
-        <div className="container" style={styles.heroContent}>
-          <span style={styles.heroSubtitle}>
-            <Flame size={16} color="var(--primary)" style={{ marginRight: 6, verticalAlign: "middle" }} />
-            NEW COLLECTION 2026
-          </span>
-          <h1 style={styles.heroTitle}>
-            Unleash the <span style={styles.highlightText}>Crimson</span> Inside You.
-          </h1>
-          <p style={styles.heroDescription}>
-            Explore our curated shop featuring premium leather bags, high-performance running sneakers, acoustic noise-canceling headphones, and designer watches in striking red and white designs.
-          </p>
-          <div style={styles.heroBtns}>
-            <Link href="/shop" className="btn btn-primary">
-              Shop Now <ArrowRight size={18} />
-            </Link>
-            <Link href="/shop?liked=true" className="btn btn-secondary" style={{ borderColor: "#ffffff", color: "#ffffff" }}>
-              View Wishlist
-            </Link>
-          </div>
+        <div className="container" style={styles.heroContent(isMobile)}>
+          <ScrollReveal direction="left" duration={900} style={styles.heroLeft(isMobile)}>
+            <span style={styles.heroSubtitle}>
+              <Flame size={16} color="var(--primary)" style={{ marginRight: 6, verticalAlign: "middle" }} />
+              NEW COLLECTION 2026
+            </span>
+            <h1 style={styles.heroTitle}>
+              Unleash the <span style={styles.highlightText}>Crimson</span> Inside You.
+            </h1>
+            <p style={styles.heroDescription}>
+              Explore our curated shop featuring premium leather bags, high-performance running sneakers, acoustic noise-canceling headphones, and designer watches in striking red and white designs.
+            </p>
+            <div style={styles.heroBtns}>
+              <Link href="/shop" className="btn btn-primary">
+                Shop Now <ArrowRight size={18} />
+              </Link>
+              <Link href="/shop?liked=true" className="btn btn-secondary" style={{ borderColor: "#ffffff", color: "#ffffff" }}>
+                View Wishlist
+              </Link>
+            </div>
+          </ScrollReveal>
+
+          <ScrollReveal direction="right" duration={900} style={styles.heroRight(isMobile)}>
+            <Hero3D />
+          </ScrollReveal>
         </div>
       </section>
 
       {/* 2. VALUE PROPOSITIONS */}
       <section style={styles.values}>
         <div className="container" style={styles.valuesGrid}>
-          <div style={styles.valueCard}>
+          <ScrollReveal direction="up" delay={0} duration={600} style={styles.valueCard}>
             <Truck size={36} color="var(--primary)" />
             <div>
               <h4 style={styles.valueTitle}>Free Express Shipping</h4>
               <p style={styles.valueDesc}>Complimentary delivery on all orders over $99.</p>
             </div>
-          </div>
-          <div style={styles.valueCard}>
+          </ScrollReveal>
+          <ScrollReveal direction="up" delay={150} duration={600} style={styles.valueCard}>
             <RefreshCw size={36} color="var(--primary)" />
             <div>
               <h4 style={styles.valueTitle}>30-Day Easy Returns</h4>
               <p style={styles.valueDesc}>Return any item for free within 30 days, no questions asked.</p>
             </div>
-          </div>
-          <div style={styles.valueCard}>
+          </ScrollReveal>
+          <ScrollReveal direction="up" delay={300} duration={600} style={styles.valueCard}>
             <ShieldCheck size={36} color="var(--primary)" />
             <div>
               <h4 style={styles.valueTitle}>Secure Payment</h4>
               <p style={styles.valueDesc}>Your payment details are 100% protected and encrypted.</p>
             </div>
-          </div>
+          </ScrollReveal>
         </div>
       </section>
 
       {/* 3. CATEGORIES SECTION */}
       <section style={styles.section}>
         <div className="container">
-          <h2 className="section-title">Shop By Categories</h2>
-          <p className="section-subtitle">Browse through our beautifully color-curated departments</p>
+          <ScrollReveal direction="up" duration={700}>
+            <h2 className="section-title">Shop By Categories</h2>
+            <p className="section-subtitle">Browse through our beautifully color-curated departments</p>
+          </ScrollReveal>
           
           <div style={styles.categoriesGrid}>
             {[
@@ -111,21 +132,23 @@ export default function Home() {
               { name: "Watches", count: "2 Products", image: "/product_watch.png", path: "/shop?category=Watches" },
               { name: "Bags", count: "2 Products", image: "/product_bag.png", path: "/shop?category=Bags" }
             ].map((cat, i) => (
-              <Link href={cat.path} key={i} style={styles.categoryCard} className="card">
-                <div style={styles.categoryImgWrapper}>
-                  <Image
-                    src={cat.image}
-                    alt={cat.name}
-                    width={180}
-                    height={180}
-                    style={styles.categoryImg}
-                  />
-                </div>
-                <div style={styles.categoryContent}>
-                  <h3 style={styles.categoryName}>{cat.name}</h3>
-                  <span style={styles.categoryCount}>{cat.count}</span>
-                </div>
-              </Link>
+              <ScrollReveal direction="up" delay={i * 100} duration={600} key={i} style={styles.categoryCard} className="card">
+                <Link href={cat.path} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", height: "100%" }}>
+                  <div style={styles.categoryImgWrapper}>
+                    <Image
+                      src={cat.image}
+                      alt={cat.name}
+                      width={180}
+                      height={180}
+                      style={styles.categoryImg}
+                    />
+                  </div>
+                  <div style={styles.categoryContent}>
+                    <h3 style={styles.categoryName}>{cat.name}</h3>
+                    <span style={styles.categoryCount}>{cat.count}</span>
+                  </div>
+                </Link>
+              </ScrollReveal>
             ))}
           </div>
         </div>
@@ -134,8 +157,10 @@ export default function Home() {
       {/* 4. FEATURED PRODUCTS */}
       <section style={{ ...styles.section, backgroundColor: "var(--bg-card)" }}>
         <div className="container">
-          <h2 className="section-title">Featured Highlights</h2>
-          <p className="section-subtitle">Our top recommendations hand-picked for your lifestyle</p>
+          <ScrollReveal direction="up" duration={700}>
+            <h2 className="section-title">Featured Highlights</h2>
+            <p className="section-subtitle">Our top recommendations hand-picked for your lifestyle</p>
+          </ScrollReveal>
           
           <div className="product-grid">
             {featuredProducts.map((product) => (
@@ -143,18 +168,18 @@ export default function Home() {
             ))}
           </div>
           
-          <div style={{ textAlign: "center", marginTop: "48px" }}>
+          <ScrollReveal direction="up" delay={200} duration={600} style={{ textAlign: "center", marginTop: "48px" }}>
             <Link href="/shop" className="btn btn-secondary">
               View All Products
             </Link>
-          </div>
+          </ScrollReveal>
         </div>
       </section>
 
       {/* 5. PROMO & TIMER BANNER */}
       <section style={styles.promoSection}>
         <div className="container" style={styles.promoContainer}>
-          <div style={styles.promoTextCol}>
+          <ScrollReveal direction="left" duration={800} style={styles.promoTextCol}>
             <span style={styles.promoBadge}>FLASH SALE</span>
             <h2 style={styles.promoTitle}>The Crimson Release Deal</h2>
             <p style={styles.promoDesc}>
@@ -182,9 +207,9 @@ export default function Home() {
             <Link href="/shop" className="btn btn-white" style={styles.promoBtn}>
               Claim Coupon Now
             </Link>
-          </div>
+          </ScrollReveal>
           
-          <div style={styles.promoImgCol}>
+          <ScrollReveal direction="scale" duration={800} style={styles.promoImgCol}>
             <Image
               src="/product_sneakers.png"
               alt="Promo Sneakers"
@@ -192,15 +217,17 @@ export default function Home() {
               height={350}
               style={styles.promoImg}
             />
-          </div>
+          </ScrollReveal>
         </div>
       </section>
 
       {/* 6. TESTIMONIALS */}
       <section style={styles.section}>
         <div className="container">
-          <h2 className="section-title">What Our Customers Say</h2>
-          <p className="section-subtitle">Don't take our word for it—see reviews from worldwide buyers</p>
+          <ScrollReveal direction="up" duration={700}>
+            <h2 className="section-title">What Our Customers Say</h2>
+            <p className="section-subtitle">Don't take our word for it—see reviews from worldwide buyers</p>
+          </ScrollReveal>
           
           <div style={styles.testimonialsGrid}>
             {[
@@ -223,7 +250,7 @@ export default function Home() {
                 rating: 4
               }
             ].map((t, idx) => (
-              <div key={idx} style={styles.testCard} className="card">
+              <ScrollReveal direction="up" delay={idx * 150} duration={600} key={idx} style={styles.testCard} className="card">
                 <div style={styles.testStars}>
                   {[...Array(5)].map((_, i) => (
                     <Star
@@ -242,7 +269,7 @@ export default function Home() {
                     <span style={styles.testRole}>{t.role}</span>
                   </div>
                 </div>
-              </div>
+              </ScrollReveal>
             ))}
           </div>
         </div>
@@ -273,19 +300,40 @@ const styles = {
   heroImage: {
     objectFit: "cover",
   },
-  heroOverlay: {
+  heroOverlay: (isMobile) => ({
     position: "absolute",
     top: 0,
     left: 0,
     width: "100%",
     height: "100%",
-    background: "linear-gradient(to right, rgba(0, 0, 0, 0.75) 30%, rgba(217, 4, 41, 0.3) 70%, rgba(0, 0, 0, 0.2) 100%)",
-  },
-  heroContent: {
+    background: isMobile 
+      ? "linear-gradient(to bottom, rgba(0, 0, 0, 0.85) 60%, rgba(217, 4, 41, 0.4) 100%)"
+      : "linear-gradient(to right, rgba(0, 0, 0, 0.8) 30%, rgba(217, 4, 41, 0.2) 70%, rgba(0, 0, 0, 0.1) 100%)",
+  }),
+  heroContent: (isMobile) => ({
     position: "relative",
     zIndex: 2,
-    maxWidth: "700px",
-  },
+    display: "flex",
+    flexDirection: isMobile ? "column" : "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "30px",
+    width: "100%",
+  }),
+  heroLeft: (isMobile) => ({
+    flex: "1",
+    maxWidth: isMobile ? "100%" : "55%",
+    textAlign: isMobile ? "center" : "left",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: isMobile ? "center" : "flex-start",
+  }),
+  heroRight: (isMobile) => ({
+    flex: "1",
+    maxWidth: isMobile ? "100%" : "42%",
+    width: "100%",
+    display: isMobile ? "none" : "block",
+  }),
   heroSubtitle: {
     display: "inline-flex",
     alignItems: "center",

@@ -79,11 +79,11 @@ export default function Footer() {
             </li>
             <li style={styles.contactItem}>
               <Phone size={16} color="var(--primary)" />
-              <span>+1 (555) 019-2834</span>
+              <span>+91 9142605833</span>
             </li>
             <li style={styles.contactItem}>
               <Mail size={16} color="var(--primary)" />
-              <span>support@rougeshop.com</span>
+              <span>ravikrp@gmail.com</span>
             </li>
           </ul>
         </div>

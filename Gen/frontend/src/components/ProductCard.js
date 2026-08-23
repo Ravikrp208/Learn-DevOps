@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useCart } from "../context/CartContext";
 import { Heart, Star, ShoppingBag } from "lucide-react";
+import ScrollReveal from "./ScrollReveal";
 
 export default function ProductCard({ product }) {
   const { addToCart, likedItems, toggleLike } = useCart();
@@ -21,7 +22,8 @@ export default function ProductCard({ product }) {
   };
 
   return (
-    <Link href={`/product/${product.id}`} className="card" style={styles.cardLink}>
+    <ScrollReveal direction="up" duration={700}>
+      <Link href={`/product/${product.id}`} className="card" style={styles.cardLink}>
       {/* Product Image Section */}
       <div style={styles.imageContainer}>
         <Image
@@ -89,6 +91,7 @@ export default function ProductCard({ product }) {
         </div>
       </div>
     </Link>
+    </ScrollReveal>
   );
 }
 
