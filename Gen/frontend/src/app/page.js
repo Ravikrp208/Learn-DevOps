@@ -7,15 +7,32 @@ import ProductCard from "../components/ProductCard";
 import Hero3D from "../components/Hero3D";
 import ScrollReveal from "../components/ScrollReveal";
 import TextReveal from "../components/TextReveal";
-import { products } from "../data/products";
+import { api } from "../utils/api";
 import { ArrowRight, Flame, ShieldCheck, Truck, RefreshCw, Star } from "lucide-react";
 
 export default function Home() {
   const [timeLeft, setTimeLeft] = useState({ hours: 12, minutes: 45, seconds: 30 });
   const [isMobile, setIsMobile] = useState(false);
 
-  // Filter out the featured products
-  const featuredProducts = products.filter((p) => p.isFeatured);
+  // Products API States
+  const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch featured products from API
+  useEffect(() => {
+    const fetchFeatured = async () => {
+      setLoading(true);
+      try {
+        const data = await api.getProducts();
+        setFeaturedProducts(data.filter((p) => p.isFeatured));
+      } catch (err) {
+        console.error("Failed to load featured products:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchFeatured();
+  }, []);
 
   // Responsive state handler
   useEffect(() => {
@@ -176,9 +193,15 @@ export default function Home() {
           </ScrollReveal>
           
           <div className="product-grid">
-            {featuredProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
+            {loading ? (
+              <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "center", padding: "40px 0" }}>
+                <p style={{ color: "var(--primary)", fontWeight: "600", fontSize: "1.1rem" }}>Loading featured products...</p>
+              </div>
+            ) : (
+              featuredProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))
+            )}
           </div>
           
           <ScrollReveal direction="up" delay={200} duration={600} style={{ textAlign: "center", marginTop: "48px" }}>

@@ -1,5 +1,4 @@
 import ProductDetailClient from "./ProductDetailClient";
-import { products } from "../../../data/products";
 import Link from "next/link";
 import { HelpCircle } from "lucide-react";
 
@@ -8,7 +7,16 @@ export default async function ProductPage({ params }) {
   // which works as a standard object in Next.js 13/14 too.
   const resolvedParams = await params;
   const id = resolvedParams.id;
-  const product = products.find((p) => p.id === id);
+  
+  let product = null;
+  try {
+    const res = await fetch(`http://localhost:5000/api/products/${id}`, { cache: "no-store" });
+    if (res.ok) {
+      product = await res.json();
+    }
+  } catch (err) {
+    console.error("Error fetching product detail:", err);
+  }
 
   if (!product) {
     return (
@@ -42,7 +50,17 @@ const styles = {
 export const dynamicParams = true;
 
 export async function generateStaticParams() {
-  return products.map((product) => ({
-    id: product.id,
-  }));
+  try {
+    const res = await fetch("http://localhost:5000/api/products");
+    if (res.ok) {
+      const products = await res.json();
+      return products.map((product) => ({
+        id: product.id,
+      }));
+    }
+  } catch (err) {
+    console.error("Error in generateStaticParams:", err);
+  }
+  return [];
 }
+

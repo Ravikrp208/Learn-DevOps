@@ -99,7 +99,7 @@ export default function Header() {
             {cartCount > 0 && <span className="header-badge">{cartCount}</span>}
           </button>
 
-          <Link href="/checkout" className="header-icon-btn" title="User Profile">
+          <Link href="/login" className="header-icon-btn" title="Login / Register">
             <User size={20} />
           </Link>
         </div>

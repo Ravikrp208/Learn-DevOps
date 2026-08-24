@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useCart } from "../../context/CartContext";
 import ProductCard from "../../components/ProductCard";
-import { products } from "../../data/products";
+import { api } from "../../utils/api";
 import { Filter, SlidersHorizontal, Heart, Search, X } from "lucide-react";
 
 function ShopContent() {
@@ -36,34 +36,38 @@ function ShopContent() {
     setLikedOnly(initialLikedOnly);
   }, [initialLikedOnly]);
 
+  // Products API States
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch products from API on filter changes
+  useEffect(() => {
+    const fetchFilteredProducts = async () => {
+      setLoading(true);
+      try {
+        const data = await api.getProducts({
+          category: selectedCategory,
+          q: searchQuery,
+          maxPrice,
+          sortBy
+        });
+        setProducts(data);
+      } catch (err) {
+        console.error("Failed to load products:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchFilteredProducts();
+  }, [selectedCategory, searchQuery, maxPrice, sortBy]);
+
   // Categories list
   const categories = ["All", "Sneakers", "Electronics", "Watches", "Bags"];
 
-  // Filter & Sort Logic
-  const filteredProducts = products
-    .filter((product) => {
-      // 1. Category Filter
-      const matchCategory =
-        selectedCategory === "All" || product.category === selectedCategory;
-      // 2. Search Query Filter
-      const matchSearch =
-        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.description.toLowerCase().includes(searchQuery.toLowerCase());
-      // 3. Price Filter
-      const matchPrice = product.price <= maxPrice;
-      // 4. Liked Only Filter
-      const matchLiked = !likedOnly || likedItems.includes(product.id);
-
-      return matchCategory && matchSearch && matchPrice && matchLiked;
-    })
-    .sort((a, b) => {
-      // Sorting
-      if (sortBy === "price-asc") return a.price - b.price;
-      if (sortBy === "price-desc") return b.price - a.price;
-      if (sortBy === "rating") return b.rating - a.rating;
-      return 0; // Default featured order
-    });
+  // Filter local state (Wishlist Only)
+  const filteredProducts = products.filter((product) => {
+    return !likedOnly || likedItems.includes(product.id);
+  });
 
   const resetFilters = () => {
     setSelectedCategory("All");
@@ -186,7 +190,11 @@ function ShopContent() {
               </div>
             )}
 
-            {filteredProducts.length === 0 ? (
+            {loading ? (
+              <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "40vh" }}>
+                <p style={{ fontSize: "1.2rem", fontWeight: "600", color: "var(--primary)" }}>Loading Products...</p>
+              </div>
+            ) : filteredProducts.length === 0 ? (
               <div style={styles.noResults}>
                 <Search size={48} color="var(--text-muted)" style={{ marginBottom: 16 }} />
                 <h3>No Products Found</h3>

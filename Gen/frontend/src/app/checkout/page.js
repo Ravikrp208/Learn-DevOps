@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useCart } from "../../context/CartContext";
 import { CreditCard, Truck, ShieldCheck, CheckCircle2, ShoppingBag, ArrowLeft } from "lucide-react";
+import { api } from "../../utils/api";
 
 export default function CheckoutPage() {
   const { cart, cartTotal, clearCart } = useCart();
@@ -28,18 +29,49 @@ export default function CheckoutPage() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Simulate Payment and Order creation
-    setTimeout(() => {
-      const generatedOrderId = `RG-${Math.floor(100000 + Math.random() * 900000)}`;
-      setOrderId(generatedOrderId);
-      setIsSubmitting(false);
+    const orderItems = cart.map((item) => ({
+      name: item.product.name,
+      quantity: item.quantity,
+      price: item.product.price,
+      image: item.product.image,
+      selectedSize: item.selectedSize,
+      selectedColor: item.selectedColor,
+      productId: item.product.id,
+    }));
+
+    const orderData = {
+      orderItems,
+      shippingAddress: {
+        name: formData.name,
+        email: formData.email,
+        address: formData.address,
+        city: formData.city,
+        zip: formData.zip,
+      },
+      paymentDetails: {
+        cardName: formData.cardName,
+        cardNumber: formData.cardNumber,
+      },
+      shippingFee,
+      tax: estimatedTax,
+      totalPrice: orderTotal,
+    };
+
+    try {
+      const response = await api.createOrder(orderData);
+      setOrderId(response.orderNumber);
       setIsSuccess(true);
       clearCart();
-    }, 2000);
+    } catch (err) {
+      console.error("Order submission failed:", err);
+      alert(err.message || "Failed to place order. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Calculations
