@@ -22,6 +22,23 @@ const userSchema = new mongoose.Schema(
       minlength: 6,
       select: false, // Don't return password by default in queries
     },
+    assistantName: {
+      type: String,
+      default: "Shifra",
+    },
+    assistantImage: {
+      type: String,
+      default: "",
+    },
+    history: [
+      {
+        prompt: { type: String, default: "" },
+        response: { type: String, default: "" },
+        type: { type: String, default: "general" },
+        userInput: { type: String, default: "" },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   {
     timestamps: true,

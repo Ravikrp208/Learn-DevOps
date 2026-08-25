@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useCart } from "../context/CartContext";
@@ -12,6 +12,31 @@ export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userName, setUserName] = useState("");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const logged = localStorage.getItem("user_logged_in") === "true";
+      setIsLoggedIn(logged);
+      if (logged) {
+        setUserName(localStorage.getItem("user_name") || "User");
+      }
+    }
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("user_logged_in");
+    localStorage.removeItem("user_token");
+    localStorage.removeItem("user_name");
+    localStorage.removeItem("user_email");
+    setIsLoggedIn(false);
+    router.push("/");
+    if (typeof window !== "undefined") {
+      window.location.reload();
+    }
+  };
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -99,9 +124,25 @@ export default function Header() {
             {cartCount > 0 && <span className="header-badge">{cartCount}</span>}
           </button>
 
-          <Link href="/login" className="header-icon-btn" title="Login / Register">
-            <User size={20} />
-          </Link>
+          {isLoggedIn ? (
+            <button 
+              onClick={() => {
+                if (confirm("Do you want to log out?")) {
+                  handleLogout();
+                }
+              }}
+              className="header-icon-btn" 
+              title={`Logged in as ${userName}. Click to Logout.`}
+              style={{ display: "flex", alignItems: "center", gap: "4px", border: "none", background: "none", cursor: "pointer", padding: 0 }}
+            >
+              <User size={20} color="var(--primary)" />
+              <span style={{ fontSize: "0.8rem", fontWeight: "700", color: "var(--text-primary)" }}>Logout</span>
+            </button>
+          ) : (
+            <Link href="/login" className="header-icon-btn" title="Login / Register">
+              <User size={20} />
+            </Link>
+          )}
         </div>
       </div>
 

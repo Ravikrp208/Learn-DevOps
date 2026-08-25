@@ -2,6 +2,7 @@ import { CartProvider } from "../context/CartContext";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import CartDrawer from "../components/CartDrawer";
+import AIAssistant from "../components/AIAssistant";
 import "./globals.css";
 
 export const metadata = {
@@ -26,6 +27,7 @@ export default function RootLayout({ children }) {
           <main>{children}</main>
           <Footer />
           <CartDrawer />
+          <AIAssistant />
         </CartProvider>
       </body>
     </html>

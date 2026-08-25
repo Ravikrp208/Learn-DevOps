@@ -115,4 +115,55 @@ export const api = {
     }
     return response.json();
   },
+
+  // Assistant APIs
+  getAssistant: async () => {
+    const response = await fetch(`${API_BASE_URL}/assistant/me`, {
+      method: "GET",
+      headers: getHeaders(false),
+    });
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.message || "Failed to get assistant details");
+    }
+    return response.json();
+  },
+
+  updateAssistant: async (assistantName, assistantImage) => {
+    const response = await fetch(`${API_BASE_URL}/assistant/update`, {
+      method: "POST",
+      headers: getHeaders(true),
+      body: JSON.stringify({ assistantName, assistantImage }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to update assistant");
+    }
+    return data;
+  },
+
+  askToAssistant: async (prompt) => {
+    const response = await fetch(`${API_BASE_URL}/assistant/ask`, {
+      method: "POST",
+      headers: getHeaders(true),
+      body: JSON.stringify({ prompt }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to query assistant");
+    }
+    return data;
+  },
+
+  clearAssistantHistory: async () => {
+    const response = await fetch(`${API_BASE_URL}/assistant/clear-history`, {
+      method: "POST",
+      headers: getHeaders(false),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to clear history");
+    }
+    return data;
+  },
 };

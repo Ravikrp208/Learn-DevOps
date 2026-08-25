@@ -1,22 +1,35 @@
 import dotenv from "dotenv";
 import connectDB from "./src/config/db.js";
 import app from "./src/app.js";
+import Product from "./src/models/Product.js";
+import { products } from "./src/data/products.js";
 
-// Load env vars
 dotenv.config();
 
-// Connect to Database
-connectDB();
+const startServer = async () => {
+  try {
+    // Connect to MongoDB
+    await connectDB();
 
-const PORT = process.env.PORT || 5000;
+    // Seed products if database is empty
+    const count = await Product.countDocuments();
 
-const server = app.listen(PORT, () => {
-  console.log(`Server running in development mode on port ${PORT}`);
-});
+    if (count === 0) {
+      await Product.insertMany(products);
+      console.log("Products seeded successfully!");
+    }
 
-// Handle unhandled promise rejections
-process.on("unhandledRejection", (err, promise) => {
-  console.error(`Unhandled Rejection Error: ${err.message}`);
-  // Close server & exit process
-  server.close(() => process.exit(1));
-});
+    // Start server
+    const PORT = process.env.PORT || 5000;
+
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+
+  } catch (error) {
+    console.error("Server error:", error.message);
+    process.exit(1);
+  }
+};
+
+startServer();

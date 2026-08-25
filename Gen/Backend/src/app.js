@@ -3,6 +3,7 @@ import cors from "cors";
 import authRoutes from "./routes/authRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
+import assistantRoutes from "./routes/assistantRoutes.js";
 
 const app = express();
 
@@ -20,6 +21,7 @@ app.use((req, res, next) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/assistant", assistantRoutes);
 
 // Root Route
 app.get("/", (req, res) => {

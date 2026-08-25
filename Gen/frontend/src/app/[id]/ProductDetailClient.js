@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "../../../context/CartContext";
 import ProductCard from "../../../components/ProductCard";
-import { products } from "../../../data/products";
+import { api } from "../../../utils/api";
 import { Star, Heart, ShoppingBag, ArrowLeft, Check, Shield, Truck, RotateCcw } from "lucide-react";
 
 export default function ProductDetailClient({ product }) {
@@ -16,13 +16,22 @@ export default function ProductDetailClient({ product }) {
   const [selectedColor, setSelectedColor] = useState(product.colors ? product.colors[0] : "");
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState("description");
+  const [relatedProducts, setRelatedProducts] = useState([]);
 
   const isLiked = likedItems.includes(product.id);
 
-  // Find related products (same category, excluding the current one)
-  const relatedProducts = products
-    .filter((p) => p.category === product.category && p.id !== product.id)
-    .slice(0, 3);
+  // Find related products dynamically via API
+  useEffect(() => {
+    const fetchRelated = async () => {
+      try {
+        const data = await api.getProducts({ category: product.category });
+        setRelatedProducts(data.filter((p) => p.id !== product.id).slice(0, 3));
+      } catch (err) {
+        console.error("Failed to load related products:", err);
+      }
+    };
+    fetchRelated();
+  }, [product.category, product.id]);
 
   const handleAddToCart = () => {
     addToCart(product, quantity, selectedSize, selectedColor);

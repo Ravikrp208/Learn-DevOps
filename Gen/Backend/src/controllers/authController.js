@@ -79,6 +79,8 @@ export const getMe = async (req, res) => {
         _id: user._id,
         name: user.name,
         email: user.email,
+        assistantName: user.assistantName || "Shifra",
+        assistantImage: user.assistantImage || "",
       });
     } else {
       res.status(404).json({ message: "User not found" });
