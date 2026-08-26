@@ -83,7 +83,7 @@ function ShopContent() {
         {/* Page Header */}
         <div style={styles.header}>
           <div>
-            <h1 style={styles.title}>ROUGE Catalog</h1>
+            <h1 style={styles.title}>GEN AI Catalog</h1>
             <p style={styles.subtitle}>
               {filteredProducts.length} premium item{filteredProducts.length !== 1 && "s"} found
             </p>

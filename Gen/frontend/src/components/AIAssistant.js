@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { api } from "../utils/api";
 import {
   MessageSquare,
@@ -115,6 +116,7 @@ const AvatarRenderer = ({ type, customUrl, style }) => {
 };
 
 export default function AIAssistant() {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -181,7 +183,6 @@ export default function AIAssistant() {
         };
 
         rec.onerror = (e) => {
-          console.error("Speech Recognition Error:", e);
           setIsListening(false);
         };
 
@@ -207,15 +208,15 @@ export default function AIAssistant() {
         setTempCustomUrl("");
       }
     } catch (err) {
-      console.error("Error fetching assistant data:", err);
+      console.warn("Error fetching assistant data:", err);
       if (err.message && (err.message.includes("authorized") || err.message.includes("token") || err.message.includes("JWT") || err.message.includes("Unauthorized"))) {
         setIsLoggedIn(false);
       }
     }
   };
 
-  const speakText = (text) => {
-    if (!isSpeechEnabled || !synthesisRef.current) return;
+  const speakText = (text, forceSpeak = false) => {
+    if ((!isSpeechEnabled && !forceSpeak) || !synthesisRef.current) return;
     synthesisRef.current.cancel(); // Stop any ongoing speech
 
     // Clean text: strip markdown code blocks and stars
@@ -274,7 +275,7 @@ export default function AIAssistant() {
       handleActionTriggers(result);
 
     } catch (err) {
-      console.error("Ask to assistant error:", err);
+      console.warn("Ask to assistant error:", err);
       setHistory((prev) => {
         const filtered = prev.filter((m) => !m.isTemp);
         return [
@@ -301,6 +302,20 @@ export default function AIAssistant() {
 
     let url = "";
     switch (type) {
+      case "product_search":
+        setTimeout(() => {
+          router.push(`/shop?q=${encodeURIComponent(query)}`);
+        }, 1200);
+        break;
+      case "product_details":
+        setTimeout(() => {
+          if (result.productId) {
+            router.push(`/product/${result.productId}`);
+          } else {
+            router.push(`/shop?q=${encodeURIComponent(query)}`);
+          }
+        }, 1200);
+        break;
       case "youtube_play":
       case "youtube_search":
         url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
@@ -370,7 +385,7 @@ export default function AIAssistant() {
       setAssistantImage(res.assistantImage);
       setIsSettingsOpen(false);
     } catch (err) {
-      console.error("Save assistant settings error:", err);
+      console.warn("Save assistant settings error:", err);
       alert(err.message || "Failed to save settings");
     }
   };
@@ -381,7 +396,7 @@ export default function AIAssistant() {
         await api.clearAssistantHistory();
         setHistory([]);
       } catch (err) {
-        console.error("Clear history error:", err);
+        console.warn("Clear history error:", err);
       }
     }
   };
@@ -425,7 +440,23 @@ export default function AIAssistant() {
         className="pulse-primary"
         title="Chat with AI Assistant"
       >
-        {isOpen ? <X size={26} /> : <MessageSquare size={26} />}
+        {isOpen ? (
+          <X size={26} />
+        ) : (
+          <svg width="28" height="28" viewBox="0 0 32 32" fill="none" style={{ filter: "drop-shadow(0 0 4px #ffffff)" }}>
+            <defs>
+              <linearGradient id="aiBtnGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#ffffff" />
+                <stop offset="100%" stopColor="#ffb3c1" />
+              </linearGradient>
+            </defs>
+            <circle cx="16" cy="16" r="11" stroke="url(#aiBtnGrad)" strokeWidth="2.5" fill="none" />
+            <polygon points="16,9 20,16 16,23 12,16" fill="url(#aiBtnGrad)" />
+            <circle cx="16" cy="16" r="2.5" fill="var(--primary)" />
+            <circle cx="9" cy="12" r="1.5" fill="#ffffff" opacity="0.8" />
+            <circle cx="23" cy="20" r="1.5" fill="#ffffff" opacity="0.8" />
+          </svg>
+        )}
       </button>
 
       {/* 2. CHAT DRAWER */}
@@ -466,7 +497,17 @@ export default function AIAssistant() {
 
                 <div style={styles.headerActions}>
                   <button
-                    onClick={() => setIsSpeechEnabled(!isSpeechEnabled)}
+                    onClick={() => {
+                      const nextVal = !isSpeechEnabled;
+                      setIsSpeechEnabled(nextVal);
+                      if (nextVal) {
+                        speakText("Hi! Speech is enabled.", true);
+                      } else {
+                        if (synthesisRef.current) {
+                          synthesisRef.current.cancel();
+                        }
+                      }
+                    }}
                     style={styles.actionBtn}
                     title={isSpeechEnabled ? "Disable Text-to-Speech" : "Enable Text-to-Speech"}
                   >
@@ -710,7 +751,7 @@ const styles = {
     overflow: "hidden",
     boxShadow: "var(--shadow-lg)",
     border: "1px solid var(--border)",
-    background: "rgba(255, 255, 255, 0.85)",
+    background: "var(--bg-card)",
     backdropFilter: "blur(20px)",
     WebkitBackdropFilter: "blur(20px)",
     // Custom media query behavior via CSS is preferred, but simple JS-based responsive width handles mobile viewport
@@ -731,7 +772,7 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "rgba(255, 255, 255, 0.4)"
+    backgroundColor: "var(--bg-main)"
   },
   headerUser: {
     display: "flex",
@@ -773,7 +814,7 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     gap: "16px",
-    backgroundColor: "rgba(248, 249, 250, 0.4)"
+    backgroundColor: "var(--bg-main)"
   },
   emptyChat: {
     flex: 1,
@@ -844,7 +885,7 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: "8px",
-    backgroundColor: "rgba(255, 255, 255, 0.4)"
+    backgroundColor: "var(--bg-card)"
   },
   chatInput: {
     flex: 1,

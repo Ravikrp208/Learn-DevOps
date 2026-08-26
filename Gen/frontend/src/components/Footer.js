@@ -22,9 +22,22 @@ export default function Footer() {
       <div className="container" style={styles.grid}>
         {/* Brand Column */}
         <div style={styles.col}>
-          <Link href="/" style={styles.logo}>
-            <span style={{ color: "var(--primary)" }}>ROUGE</span>
-            <span style={{ color: "#ffffff" }}>.</span>
+          <Link href="/" style={{ ...styles.logo, display: "flex", alignItems: "center", gap: "8px", textDecoration: "none" }}>
+            <svg width="24" height="24" viewBox="0 0 32 32" fill="none" style={{ filter: "drop-shadow(0 0 6px var(--primary))" }}>
+              <defs>
+                <linearGradient id="footerLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#ef233c" />
+                  <stop offset="100%" stopColor="#d90429" />
+                </linearGradient>
+              </defs>
+              <circle cx="16" cy="16" r="11" stroke="url(#footerLogoGrad)" strokeWidth="2.5" fill="none" />
+              <polygon points="16,10 19.5,16 16,22 12.5,16" fill="url(#footerLogoGrad)" />
+              <circle cx="16" cy="16" r="2.5" fill="#ffffff" />
+            </svg>
+            <span style={{ fontWeight: "900", letterSpacing: "1px", fontSize: "1.45rem", display: "flex", alignItems: "center" }}>
+              <span style={{ color: "var(--primary)" }}>GEN</span>
+              <span style={{ color: "#ffffff" }}>AI</span>
+            </span>
           </Link>
           <p style={styles.description}>
             Elevating your everyday style with our curated collections of premium apparel, tech accessories, and timepieces. Experience pure craftsmanship.
@@ -119,7 +132,7 @@ export default function Footer() {
       <div style={styles.bottom}>
         <div className="container" style={styles.bottomContainer}>
           <p style={styles.copy}>
-            &copy; {new Date().getFullYear()} ROUGE Shop. All rights reserved. Made for premium UI experiences.
+            &copy; {new Date().getFullYear()} GEN AI Shop. All rights reserved. Made for premium UI experiences.
           </p>
           <div style={styles.bottomLinks}>
             <Link href="#" style={styles.bottomLink}>

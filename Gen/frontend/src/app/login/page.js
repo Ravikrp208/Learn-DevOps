@@ -111,7 +111,7 @@ function AuthContent() {
       setIsLoading(false);
       setAlert({ type: "success", message: `Connected with ${platform}! Redirecting...` });
       localStorage.setItem("user_logged_in", "true");
-      localStorage.setItem("user_email", `${platform.toLowerCase()}user@rouge.com`);
+      localStorage.setItem("user_email", `${platform.toLowerCase()}user@genai.com`);
       
       setTimeout(() => {
         router.push("/");
@@ -129,8 +129,22 @@ function AuthContent() {
         <div className="auth-card">
           {/* Header Branding */}
           <div style={{ textAlign: "center", marginBottom: "32px" }}>
-            <Link href="/" style={{ fontSize: "2rem", fontWeight: "900", color: "var(--text-primary)", letterSpacing: "1px", textDecoration: "none" }}>
-              <span style={{ color: "var(--primary)" }}>ROUGE</span>.
+            <Link href="/" style={{ fontSize: "2rem", fontWeight: "900", color: "var(--text-primary)", letterSpacing: "1px", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "8px" }}>
+              <svg width="24" height="24" viewBox="0 0 32 32" fill="none" style={{ filter: "drop-shadow(0 0 6px var(--primary))" }}>
+                <defs>
+                  <linearGradient id="loginLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#ef233c" />
+                    <stop offset="100%" stopColor="#d90429" />
+                  </linearGradient>
+                </defs>
+                <circle cx="16" cy="16" r="11" stroke="url(#loginLogoGrad)" strokeWidth="2.5" fill="none" />
+                <polygon points="16,10 19.5,16 16,22 12.5,16" fill="url(#loginLogoGrad)" />
+                <circle cx="16" cy="16" r="2.5" fill="#ffffff" />
+              </svg>
+              <span style={{ fontWeight: "900", letterSpacing: "1px" }}>
+                <span style={{ color: "var(--primary)" }}>GEN</span>
+                <span style={{ color: "var(--text-primary)" }}>AI</span>
+              </span>
             </Link>
             <p style={{ color: "var(--text-muted)", fontSize: "0.9rem", marginTop: "8px" }}>
               {activeTab === "login" ? "Welcome back! Enter your details to sign in" : "Create an account to join the elite collection"}

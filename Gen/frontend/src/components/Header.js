@@ -61,9 +61,22 @@ export default function Header() {
         </button>
 
         {/* Brand Logo */}
-        <Link href="/" className="header-logo">
-          <span className="header-logo-red">ROUGE</span>
-          <span>.</span>
+        <Link href="/" className="header-logo" style={{ display: "flex", alignItems: "center", gap: "8px", textDecoration: "none" }}>
+          <svg width="28" height="28" viewBox="0 0 32 32" fill="none" style={{ filter: "drop-shadow(0 0 6px var(--primary))" }}>
+            <defs>
+              <linearGradient id="headerLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#ef233c" />
+                <stop offset="100%" stopColor="#d90429" />
+              </linearGradient>
+            </defs>
+            <circle cx="16" cy="16" r="11" stroke="url(#headerLogoGrad)" strokeWidth="2.5" fill="none" />
+            <polygon points="16,10 19.5,16 16,22 12.5,16" fill="url(#headerLogoGrad)" />
+            <circle cx="16" cy="16" r="2.5" fill="#ffffff" />
+          </svg>
+          <span style={{ fontWeight: "900", letterSpacing: "1px", fontSize: "1.45rem", display: "flex", alignItems: "center" }}>
+            <span style={{ color: "var(--primary)" }}>GEN</span>
+            <span style={{ color: "var(--text-primary)" }}>AI</span>
+          </span>
         </Link>
 
         {/* Desktop Navigation */}

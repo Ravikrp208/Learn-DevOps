@@ -1,4 +1,5 @@
 import User from "../models/User.js";
+import Product from "../models/Product.js";
 import geminiResponse from "../utils/gemini.js";
 
 // @desc    Get assistant configurations and chat history
@@ -270,6 +271,95 @@ export const askToAssistant = async (req, res) => {
 
       case 'weather_show':
         return sendAndSave('weather_show', extractedQuery, gemResult.response || `Here is the current weather update for ${extractedQuery}`);
+
+      case 'product_search': {
+        const queryRegex = new RegExp(extractedQuery, 'i');
+        const matches = await Product.find({
+          $or: [
+            { name: queryRegex },
+            { category: queryRegex },
+            { description: queryRegex }
+          ]
+        }).limit(5);
+
+        let responseText = "";
+        if (matches.length > 0) {
+          const productList = matches.map(p => `${p.name} at $${p.price}`).join(', ');
+          responseText = `I found these products in our catalog: ${productList}. Opening the shop page for you now.`;
+        } else {
+          responseText = `I couldn't find any products matching "${extractedQuery}" in our catalog. Let me open the shop catalog for you.`;
+        }
+
+        const historyEntry = {
+          prompt: cleanPrompt,
+          response: responseText,
+          type: 'product_search',
+          userInput: extractedQuery,
+          createdAt: new Date()
+        };
+
+        await User.findByIdAndUpdate(req.user._id, {
+          $push: {
+            history: {
+              $each: [historyEntry],
+              $slice: -100
+            }
+          }
+        });
+
+        return res.json({
+          type: 'product_search',
+          userInput: extractedQuery,
+          response: responseText,
+          products: matches,
+          historyEntry
+        });
+      }
+
+      case 'product_details': {
+        const queryRegex = new RegExp(extractedQuery, 'i');
+        const match = await Product.findOne({
+          $or: [
+            { name: queryRegex },
+            { category: queryRegex },
+            { description: queryRegex }
+          ]
+        });
+
+        let responseText = "";
+        let productId = "";
+        if (match) {
+          productId = match.id;
+          responseText = `The ${match.name} is a premium ${match.category} item. It is priced at $${match.price}. Description: ${match.description}. Rating is ${match.rating} stars.`;
+        } else {
+          responseText = `I couldn't find any product details for "${extractedQuery}" in our catalog. Please try another product name.`;
+        }
+
+        const historyEntry = {
+          prompt: cleanPrompt,
+          response: responseText,
+          type: 'product_details',
+          userInput: extractedQuery,
+          createdAt: new Date()
+        };
+
+        await User.findByIdAndUpdate(req.user._id, {
+          $push: {
+            history: {
+              $each: [historyEntry],
+              $slice: -100
+            }
+          }
+        });
+
+        return res.json({
+          type: 'product_details',
+          userInput: extractedQuery,
+          response: responseText,
+          productId,
+          historyEntry
+        });
+      }
 
       case 'general':
       default:

@@ -87,7 +87,7 @@ export default function CheckoutPage() {
           <CheckCircle2 size={80} color="var(--success)" style={{ marginBottom: 24 }} />
           <h1 style={styles.successTitle}>Order Placed Successfully!</h1>
           <p style={styles.successText}>
-            Thank you for shopping at <strong>ROUGE</strong>. Your payment has been processed and we are preparing your order.
+            Thank you for shopping at <strong>GEN AI</strong>. Your payment has been processed and we are preparing your order.
           </p>
           <div style={styles.receipt}>
             <div style={styles.receiptRow}>
